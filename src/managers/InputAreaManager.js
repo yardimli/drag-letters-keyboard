@@ -15,8 +15,8 @@ export class InputAreaManager {
 
     create() {
         const width = this.scene.scale.width;
-        const height = this.scene.scale.height;
-        this.yPos =  100;
+        // const height = this.scene.scale.height; // Unused
+        this.yPos = 100;
 
         this.inputContainer = this.scene.add.container(width / 2, this.yPos);
 
@@ -35,6 +35,7 @@ export class InputAreaManager {
     }
 
     createClearButton() {
+        // Position button slightly to the right of the input box
         const btnX = this.areaWidth / 2 + 60;
         const btn = this.scene.add.container(btnX, 0);
 
@@ -70,6 +71,9 @@ export class InputAreaManager {
         ballImage.setTint(0x00cc44);
 
         ball.setInteractive({ useHandCursor: true });
+
+        // Remove previous listeners to avoid duplicates
+        ball.off('pointerdown');
         ball.on('pointerdown', () => {
             this.popBall(ball);
         });
@@ -80,39 +84,36 @@ export class InputAreaManager {
         this.scene.checkWord(this.getCurrentWord());
     }
 
+    /**
+     * Removes a specific ball with an explosion effect.
+     * @param {Phaser.GameObjects.Container} ball
+     */
     popBall(ball) {
-        this.scene.sound.play('bounce1', { rate: 1.5, volume: 0.5 });
-
+        // Remove from active array
         this.activeBalls = this.activeBalls.filter(b => b !== ball);
 
-        const worldStart = this.inputContainer.localTransform.transformPoint(ball.x, ball.y);
+        // Convert local position to world position for the explosion
+        const worldPos = this.inputContainer.localTransform.transformPoint(ball.x, ball.y);
+        ball.setPosition(worldPos.x, worldPos.y);
+        this.scene.add.existing(ball); // Move out of container to world
 
-        this.scene.add.existing(ball);
-        ball.setPosition(worldStart.x, worldStart.y);
+        // Trigger explosion effect
+        this.explodeBalls([ball]);
 
-        this.scene.tweens.add({
-            targets: ball,
-            // MODIFIED: Use dragStartX/Y
-            x: ball.dragStartX,
-            y: ball.dragStartY,
-            scale: 0.5,
-            alpha: 0,
-            duration: 300,
-            onComplete: () => {
-                ball.destroy();
-                this.repositionBalls();
-                this.scene.checkWord(this.getCurrentWord());
-            }
-        });
+        this.repositionBalls();
+        this.scene.checkWord(this.getCurrentWord());
     }
 
+    /**
+     * Repositions balls to be Left Aligned.
+     */
     repositionBalls() {
         const count = this.activeBalls.length;
         if (count === 0) return;
 
         const gap = 70;
-        const totalW = (count - 1) * gap;
-        const startX = -totalW / 2;
+        // Start from the left edge of the input area plus some padding
+        const startX = (-this.areaWidth / 2) + 50;
 
         this.activeBalls.forEach((ball, index) => {
             const targetX = startX + (index * gap);
@@ -132,7 +133,56 @@ export class InputAreaManager {
     }
 
     clearInput() {
-        [...this.activeBalls].forEach(ball => this.popBall(ball));
+        // Explode all active balls
+        if (this.activeBalls.length > 0) {
+            // Move balls to world space first for correct particle positioning
+            const ballsToExplode = [...this.activeBalls];
+
+            ballsToExplode.forEach(ball => {
+                const worldPos = this.inputContainer.localTransform.transformPoint(ball.x, ball.y);
+                ball.setPosition(worldPos.x, worldPos.y);
+                this.scene.add.existing(ball);
+            });
+
+            this.explodeBalls(ballsToExplode);
+            this.activeBalls = [];
+            this.scene.checkWord("");
+        }
+    }
+
+    /**
+     * Explodes specific balls.
+     * @param {Array} ballsToExplode
+     */
+    explodeBalls(ballsToExplode) {
+        if (!ballsToExplode || ballsToExplode.length === 0) return;
+
+        // Create a particle emitter manager
+        const emitter = this.scene.add.particles(0, 0, 'particle', {
+            speed: { min: 50, max: 200 },
+            scale: { start: 1, end: 0 },
+            alpha: { start: 1, end: 0 },
+            lifespan: 800,
+            gravityY: 200,
+            blendMode: 'ADD',
+            emitting: false
+        });
+
+        ballsToExplode.forEach(ball => {
+            // Emit particles at ball position
+            emitter.emitParticleAt(ball.x, ball.y, 20); // 20 particles per ball
+
+            // Play a sound (pitch shifted up for effect)
+            this.scene.sound.play('bounce1', { volume: 0.5, rate: 1.5 });
+
+            // Destroy the ball
+            ball.destroy();
+        });
+
+        // Clean up the emitter after particles are gone
+        this.scene.time.delayedCall(1000, () => {
+            emitter.destroy();
+        });
     }
 
     getBounds() {

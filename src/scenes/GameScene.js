@@ -25,6 +25,7 @@ export class GameScene extends Phaser.Scene {
 
         this.createBackground();
         this.createBallTexture();
+        this.createParticleTexture();
 
         // Data
         this.dictionary = this.registry.get('dictionary') || [];
@@ -81,7 +82,21 @@ export class GameScene extends Phaser.Scene {
         texture.refresh();
     }
 
+    createParticleTexture() {
+        if (this.textures.exists('particle')) return;
+        const size = 16;
+        const texture = this.textures.createCanvas('particle', size, size);
+        const context = texture.getContext();
+        context.fillStyle = '#ffffff';
+        context.beginPath();
+        context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+        context.fill();
+        texture.refresh();
+    }
+
+
     createWordDisplay() {
+        // Positioned at y=100 (Top area) to avoid overlaying the keyboard at the bottom
         this.currentWordTextObj = this.add.text(this.scale.width / 2, 100, "", {
             fontSize: '48px',
             fontStyle: 'bold',
@@ -109,7 +124,6 @@ export class GameScene extends Phaser.Scene {
 
         this.tweens.add({
             targets: ball,
-            // MODIFIED: Use dragStartX/Y
             x: ball.dragStartX,
             y: ball.dragStartY,
             duration: 400,
@@ -121,6 +135,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     checkWord(word) {
+        // If the word changes or is cleared, remove the current image immediately
         if (this.currentImage) {
             this.currentImage.destroy();
             this.currentImage = null;
@@ -158,24 +173,50 @@ export class GameScene extends Phaser.Scene {
     displayImage(key) {
         if (this.currentImage) this.currentImage.destroy();
 
-        const cx = this.scale.width / 2;
-        const cy = this.scale.height / 2 - 100;
+        // --- Calculate Position: Right side of the input box ---
+        // Input container is centered at (width/2, yPos)
+        // Input width is 600. Right edge is x + 300.
+        // We add some padding (e.g., 20px) + half the image width (approximate placeholder)
 
-        this.currentImage = this.add.image(cx, cy, key);
-        this.currentImage.setOrigin(0.5);
+        const inputMgr = this.inputAreaManager;
+        const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
+        const targetX = inputRightEdge + 10; // 10px padding from the box
+        const targetY = inputMgr.inputContainer.y; // Aligned vertically with input box
 
-        const maxSize = 300;
-        if (this.currentImage.width > maxSize || this.currentImage.height > maxSize) {
-            const scale = maxSize / Math.max(this.currentImage.width, this.currentImage.height);
-            this.currentImage.setScale(scale);
-        }
+        this.currentImage = this.add.image(targetX, targetY, key);
+        this.currentImage.setOrigin(0, 0.5); // Origin left-center to grow outwards to the right
 
-        this.currentImage.setScale(0);
+        // --- Resize to fit Input Area Height ---
+        const targetHeight = inputMgr.areaHeight;
+        // Scale based on height to match the input box
+        const scale = targetHeight / this.currentImage.height;
+
+        this.currentImage.setScale(0); // Start invisible for tween
+
+        // Animate In
         this.tweens.add({
             targets: this.currentImage,
-            scale: { from: 0, to: this.currentImage.scale },
+            scale: scale,
             duration: 500,
             ease: 'Back.Out'
+        });
+
+        // --- Auto-hide after 3 seconds ---
+        this.time.delayedCall(3000, () => {
+            if (this.currentImage && this.currentImage.active) {
+                this.tweens.add({
+                    targets: this.currentImage,
+                    alpha: 0,
+                    scale: 0,
+                    duration: 300,
+                    onComplete: () => {
+                        if (this.currentImage) {
+                            this.currentImage.destroy();
+                            this.currentImage = null;
+                        }
+                    }
+                });
+            }
         });
     }
 
@@ -204,8 +245,11 @@ export class GameScene extends Phaser.Scene {
             this.currentWordTextObj.setPosition(width / 2, 100);
         }
 
-        if (this.currentImage) {
-            this.currentImage.setPosition(width / 2, height / 2 - 100);
+        // If an image is currently displayed, update its position
+        if (this.currentImage && this.currentImage.active) {
+            const inputMgr = this.inputAreaManager;
+            const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
+            this.currentImage.setPosition(inputRightEdge + 10, inputMgr.inputContainer.y);
         }
     }
 }

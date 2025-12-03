@@ -11,6 +11,7 @@
 			overflow: hidden;
 			background-color: #2d2d2d;
 			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			color: white;
 		}
 
 		/* Game Canvas Styles */
@@ -19,21 +20,20 @@
 			cursor: none; /* Hide default cursor when game is running */
 		}
 
-		/* Loading Overlay */
-		#loading-screen {
+		/* UI Overlay (Menu & Loading) */
+		#ui-layer {
 			position: fixed;
 			top: 0;
 			left: 0;
 			width: 100%;
 			height: 100%;
 			background: #1a2a6c;
+			background: linear-gradient(135deg, #1a2a6c 0%, #b21f1f 100%);
 			display: flex;
+			flex-direction: column;
 			justify-content: center;
 			align-items: center;
 			z-index: 1000;
-			color: white;
-			font-size: 24px;
-			font-weight: bold;
 			transition: opacity 0.5s;
 		}
 
@@ -41,34 +41,177 @@
 			opacity: 0;
 			pointer-events: none;
 		}
+
+		h1 {
+			font-size: 48px;
+			margin-bottom: 40px;
+			text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+		}
+
+		.control-group {
+			margin-bottom: 20px;
+			text-align: center;
+		}
+
+		label {
+			display: block;
+			margin-bottom: 10px;
+			font-size: 18px;
+			font-weight: bold;
+		}
+
+		select {
+			padding: 12px 20px;
+			font-size: 18px;
+			border-radius: 8px;
+			border: none;
+			background: rgba(255, 255, 255, 0.9);
+			color: #333;
+			cursor: pointer;
+			min-width: 200px;
+		}
+
+		button#start-btn {
+			padding: 15px 40px;
+			font-size: 24px;
+			font-weight: bold;
+			color: white;
+			background: #00cc44;
+			border: none;
+			border-radius: 50px;
+			cursor: pointer;
+			box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+			transition: transform 0.2s, background 0.2s;
+			margin-top: 20px;
+		}
+
+		button#start-btn:hover {
+			background: #00aa38;
+			transform: scale(1.05);
+		}
+
+		.admin-link {
+			position: absolute;
+			bottom: 20px;
+			right: 20px;
+			color: rgba(255, 255, 255, 0.6);
+			text-decoration: none;
+			font-size: 14px;
+			border: 1px solid rgba(255, 255, 255, 0.3);
+			padding: 8px 16px;
+			border-radius: 4px;
+			transition: 0.3s;
+		}
+
+		.admin-link:hover {
+			color: white;
+			border-color: white;
+			background: rgba(255, 255, 255, 0.1);
+		}
+
+		#loading-text {
+			display: none;
+			font-size: 24px;
+			font-weight: bold;
+			margin-top: 20px;
+		}
 	</style>
 	<!-- Load Phaser -->
 	<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.min.js"></script>
 </head>
 <body>
 
-<!-- Simple Loading Screen -->
-<div id="loading-screen">
-	Loading Game...
+<div id="ui-layer">
+	<h1>Spelling Game</h1>
+
+	<div id="menu-controls">
+		<div class="control-group">
+			<label for="lang-select">Select Language</label>
+			<select id="lang-select">
+				<option value="" disabled selected>Loading languages...</option>
+			</select>
+		</div>
+
+		<button id="start-btn" disabled>START GAME</button>
+	</div>
+
+	<div id="loading-text">Loading Game Assets...</div>
+
+	<a href="admin.php" class="admin-link">Admin Panel</a>
 </div>
 
 <!-- Game Entry Point -->
 <script type="module">
 	import { launchGame } from './src/main.js';
 
-	const loadingScreen = document.getElementById('loading-screen');
+	const uiLayer = document.getElementById('ui-layer');
+	const menuControls = document.getElementById('menu-controls');
+	const langSelect = document.getElementById('lang-select');
+	const startBtn = document.getElementById('start-btn');
+	const loadingText = document.getElementById('loading-text');
 
-	// Auto-launch the game immediately
-	(async () => {
-		// Change body cursor to none for the game
+	// 1. Fetch words to populate language dropdown
+	fetch('assets/words.json')
+			.then(response => response.json())
+			.then(data => {
+				langSelect.innerHTML = ''; // Clear loading text
+
+				if (data && data.words && data.words.length > 0) {
+					// Extract unique languages
+					const languages = [...new Set(data.words.map(w => w.lang))];
+
+					// Map codes to names (optional, can be expanded)
+					const langNames = {
+						'en': 'English',
+						'zh': 'Chinese',
+						'tr': 'Turkish',
+						'es': 'Spanish',
+						'fr': 'French'
+					};
+
+					languages.forEach(lang => {
+						const option = document.createElement('option');
+						option.value = lang;
+						option.textContent = langNames[lang] || lang.toUpperCase();
+						langSelect.appendChild(option);
+					});
+
+					startBtn.disabled = false;
+				} else {
+					const option = document.createElement('option');
+					option.textContent = "No words found";
+					langSelect.appendChild(option);
+				}
+			})
+			.catch(err => {
+				console.error("Failed to load word list:", err);
+				langSelect.innerHTML = '<option>Error loading data</option>';
+			});
+
+	// 2. Handle Start Button
+	startBtn.addEventListener('click', async () => {
+		const selectedLang = langSelect.value;
+		if (!selectedLang) return;
+
+		// UI Transition
+		menuControls.style.display = 'none';
+		loadingText.style.display = 'block';
+
+		// Change cursor for game mode
 		document.body.style.cursor = 'none';
 
-		// Launch Phaser Game
-		await launchGame();
+		try {
+			// Launch Phaser Game with selected language
+			await launchGame(selectedLang);
 
-		// Hide loading screen once initialized
-		loadingScreen.classList.add('hidden');
-	})();
+			// Hide UI completely
+			uiLayer.classList.add('hidden');
+		} catch (error) {
+			console.error("Game launch failed:", error);
+			loadingText.textContent = "Error starting game. Check console.";
+			document.body.style.cursor = 'default';
+		}
+	});
 </script>
 </body>
 </html>
