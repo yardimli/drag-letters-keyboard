@@ -49,14 +49,12 @@ export class InputManager {
                 // Create a dynamic ball clone at the key's position
                 const ball = this.spawnBall(pointer.x, pointer.y, gameObject.char);
 
-                // Set origin for "bounce back" logic
-                ball.originX = gameObject.x;
-                ball.originY = gameObject.y;
+                // MODIFIED: Use dragStartX/Y instead of originX/Y to avoid conflict with Phaser properties
+                ball.dragStartX = gameObject.x;
+                ball.dragStartY = gameObject.y;
 
                 this.draggedObject = ball;
             }
-            // Case B: Dragging an existing ball (e.g. from input area, if we allowed it)
-            // For now, input area balls are clicked to pop, not dragged.
         });
 
         this.scene.input.on('drag', (pointer, gameObject, dragX, dragY) => {
@@ -83,6 +81,7 @@ export class InputManager {
     spawnBall(x, y, char) {
         const container = this.scene.add.container(x, y);
         const size = 60;
+        const radius = size / 2;
 
         // Visuals
         const ballImage = this.scene.add.image(0, 0, 'ball3d');
@@ -102,8 +101,11 @@ export class InputManager {
 
         // Add Physics for the dragging effect
         this.scene.physics.add.existing(container);
-        container.body.setCircle(size / 2);
-        container.body.setDrag(100); // Slight drag
+
+        // Center the physics body on the container
+        container.body.setCircle(radius, -radius, -radius);
+
+        container.body.setDrag(100);
 
         return container;
     }
@@ -111,8 +113,8 @@ export class InputManager {
     update() {
         // Physics-based Dragging Logic (P-Controller)
         if (this.draggedObject && this.draggedObject.body && this.currentPointer) {
-            const speed = 10;
-            const maxVelocity = 1000;
+            const speed = 15;
+            const maxVelocity = 1500;
 
             let vX = (this.currentPointer.x - this.draggedObject.x) * speed;
             let vY = (this.currentPointer.y - this.draggedObject.y) * speed;

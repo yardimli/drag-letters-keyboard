@@ -62,7 +62,8 @@ export class KeyboardManager {
         container.add([ballImage, text]);
 
         // Interaction
-        container.setInteractive({ useHandCursor: true });
+        // MODIFIED: Added draggable: true so drag events fire
+        container.setInteractive({ draggable: true, useHandCursor: true });
 
         // Metadata for InputManager
         container.char = char;

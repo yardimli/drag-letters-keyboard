@@ -7,12 +7,24 @@ export class GameScene extends Phaser.Scene {
         super({ key: 'GameScene' });
     }
 
+    preload() {
+        // Audio Assets
+        this.load.audio('drop', 'assets/audio/DSGNBass_Smooth Sub Drop Bass Downer.wav');
+        this.load.audio('bounce1', 'assets/audio/basketball_bounce_single_3.wav');
+        this.load.audio('bounce2', 'assets/audio/basketball_bounce_single_5.wav');
+        this.load.audio('bounce3', 'assets/audio/Vintage Bounce.wav');
+        this.load.audio('click', 'assets/audio/basketball_bounce_single_5.wav');
+        this.load.audio('click_drop', 'assets/audio/basketball_bounce_single_3.wav');
+        this.load.audio('drop_valid', 'assets/audio/Drop Game Potion.wav');
+        this.load.audio('drop_invalid', 'assets/audio/Hit Item Dropped 2.wav');
+    }
+
     create() {
         // Fade in transition
         this.cameras.main.fadeIn(500, 0, 0, 0);
 
         this.createBackground();
-        this.createBallTexture(); // Generate the 3D ball texture
+        this.createBallTexture();
 
         // Data
         this.dictionary = this.registry.get('dictionary') || [];
@@ -32,7 +44,6 @@ export class GameScene extends Phaser.Scene {
         // Event Listeners
         this.scale.on('resize', this.resize, this);
 
-        // Display initial instruction or empty state
         this.createWordDisplay();
     }
 
@@ -45,7 +56,6 @@ export class GameScene extends Phaser.Scene {
         this.bgGraphics.setDepth(-100);
     }
 
-    // Original Ball Texture Generation
     createBallTexture() {
         if (this.textures.exists('ball3d')) return;
         const size = 64;
@@ -55,7 +65,6 @@ export class GameScene extends Phaser.Scene {
         const centerY = size / 2;
         const radius = 25;
 
-        // 3D Gradient effect
         const grd = context.createRadialGradient(centerX - 10, centerY - 10, 2, centerX, centerY, radius);
         grd.addColorStop(0, '#ffffff');
         grd.addColorStop(1, '#888888');
@@ -73,7 +82,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     createWordDisplay() {
-        // Text to show the word when matched
         this.currentWordTextObj = this.add.text(this.scale.width / 2, 100, "", {
             fontSize: '48px',
             fontStyle: 'bold',
@@ -83,22 +91,13 @@ export class GameScene extends Phaser.Scene {
         }).setOrigin(0.5);
     }
 
-    /**
-     * Called by InputManager when a ball is dropped.
-     * @param {Phaser.GameObjects.Container} ball
-     */
     handleBallDrop(ball) {
         const bounds = this.inputAreaManager.getBounds();
 
-        // Check if the ball center is within the input area
         if (bounds.contains(ball.x, ball.y)) {
-            // Valid Drop
             this.sound.play('drop_valid');
-
-            // Hand over control to InputAreaManager
             this.inputAreaManager.addBall(ball);
         } else {
-            // Invalid Drop - Return to origin
             this.returnBallToKeyboard(ball);
         }
     }
@@ -106,28 +105,22 @@ export class GameScene extends Phaser.Scene {
     returnBallToKeyboard(ball) {
         this.sound.play('bounce1', { volume: 0.5 });
 
-        // Disable physics during tween
         if (ball.body) ball.body.enable = false;
 
         this.tweens.add({
             targets: ball,
-            x: ball.originX,
-            y: ball.originY,
+            // MODIFIED: Use dragStartX/Y
+            x: ball.dragStartX,
+            y: ball.dragStartY,
             duration: 400,
             ease: 'Back.Out',
             onComplete: () => {
-                // Destroy the clone once it returns to the keyboard
                 ball.destroy();
             }
         });
     }
 
-    /**
-     * Called by InputAreaManager whenever the content changes.
-     * @param {string} word
-     */
     checkWord(word) {
-        // Clear previous image if exists
         if (this.currentImage) {
             this.currentImage.destroy();
             this.currentImage = null;
@@ -137,7 +130,6 @@ export class GameScene extends Phaser.Scene {
 
         if (!word || word.length === 0) return;
 
-        // Check dictionary
         const match = this.dictionary.find(w => w.text === word);
 
         if (match) {
@@ -146,12 +138,10 @@ export class GameScene extends Phaser.Scene {
     }
 
     showSuccess(wordObj) {
-        this.sound.play('bounce3'); // Success sound
+        this.sound.play('bounce3');
 
-        // Show Word Text
         this.currentWordTextObj.setText(wordObj.text);
 
-        // Show Image if available
         if (wordObj.image) {
             if (this.textures.exists(wordObj.text)) {
                 this.displayImage(wordObj.text);
@@ -169,19 +159,17 @@ export class GameScene extends Phaser.Scene {
         if (this.currentImage) this.currentImage.destroy();
 
         const cx = this.scale.width / 2;
-        const cy = this.scale.height / 2 - 100; // Position above input area
+        const cy = this.scale.height / 2 - 100;
 
         this.currentImage = this.add.image(cx, cy, key);
         this.currentImage.setOrigin(0.5);
 
-        // Scale to fit reasonable area
         const maxSize = 300;
         if (this.currentImage.width > maxSize || this.currentImage.height > maxSize) {
             const scale = maxSize / Math.max(this.currentImage.width, this.currentImage.height);
             this.currentImage.setScale(scale);
         }
 
-        // Pop in animation
         this.currentImage.setScale(0);
         this.tweens.add({
             targets: this.currentImage,

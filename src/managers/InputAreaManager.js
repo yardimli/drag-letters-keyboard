@@ -5,10 +5,9 @@ export class InputAreaManager {
     constructor(scene) {
         this.scene = scene;
         this.inputContainer = null;
-        this.activeBalls = []; // Stores the ball containers
+        this.activeBalls = [];
         this.inputBg = null;
 
-        // Config
         this.areaWidth = 600;
         this.areaHeight = 100;
         this.yPos = 0;
@@ -17,11 +16,10 @@ export class InputAreaManager {
     create() {
         const width = this.scene.scale.width;
         const height = this.scene.scale.height;
-        this.yPos = height / 2 + 50;
+        this.yPos =  100;
 
         this.inputContainer = this.scene.add.container(width / 2, this.yPos);
 
-        // Visual Background
         this.inputBg = this.scene.add.rectangle(0, 0, this.areaWidth, this.areaHeight, 0x222222);
         this.inputBg.setStrokeStyle(4, 0x00ffff);
         this.inputBg.setAlpha(0.8);
@@ -56,30 +54,21 @@ export class InputAreaManager {
         this.inputContainer.add(btn);
     }
 
-    /**
-     * Accepts a dropped ball, positions it, and manages interaction.
-     * @param {Phaser.GameObjects.Container} ball
-     */
     addBall(ball) {
-        // 1. Stop physics on the ball
         if (ball.body) {
             ball.body.enable = false;
             ball.body.setVelocity(0, 0);
         }
 
-        // 2. Reparent to Input Container (local coordinates)
-        // We need to calculate local position relative to container
         const localX = ball.x - this.inputContainer.x;
         const localY = ball.y - this.inputContainer.y;
 
         this.inputContainer.add(ball);
         ball.setPosition(localX, localY);
 
-        // 3. Change visual state
         const ballImage = ball.list[0];
-        ballImage.setTint(0x00cc44); // Green tint for valid input
+        ballImage.setTint(0x00cc44);
 
-        // 4. Add interaction to pop it out
         ball.setInteractive({ useHandCursor: true });
         ball.on('pointerdown', () => {
             this.popBall(ball);
@@ -94,20 +83,18 @@ export class InputAreaManager {
     popBall(ball) {
         this.scene.sound.play('bounce1', { rate: 1.5, volume: 0.5 });
 
-        // Remove from list immediately so word check updates
         this.activeBalls = this.activeBalls.filter(b => b !== ball);
 
-        // Animate return to origin (need to convert local to world for the scene tween)
         const worldStart = this.inputContainer.localTransform.transformPoint(ball.x, ball.y);
 
-        // Detach from container to move freely in world space
         this.scene.add.existing(ball);
         ball.setPosition(worldStart.x, worldStart.y);
 
         this.scene.tweens.add({
             targets: ball,
-            x: ball.originX,
-            y: ball.originY,
+            // MODIFIED: Use dragStartX/Y
+            x: ball.dragStartX,
+            y: ball.dragStartY,
             scale: 0.5,
             alpha: 0,
             duration: 300,
@@ -145,7 +132,6 @@ export class InputAreaManager {
     }
 
     clearInput() {
-        // Pop all balls
         [...this.activeBalls].forEach(ball => this.popBall(ball));
     }
 
