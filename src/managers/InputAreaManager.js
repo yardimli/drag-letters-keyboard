@@ -15,7 +15,6 @@ export class InputAreaManager {
 
     create() {
         const width = this.scene.scale.width;
-        // const height = this.scene.scale.height; // Unused
         this.yPos = 100;
 
         this.inputContainer = this.scene.add.container(width / 2, this.yPos);
@@ -35,7 +34,6 @@ export class InputAreaManager {
     }
 
     createClearButton() {
-        // Position button slightly to the right of the input box
         const btnX = this.areaWidth / 2 + 60;
         const btn = this.scene.add.container(btnX, 0);
 
@@ -81,7 +79,8 @@ export class InputAreaManager {
         this.activeBalls.push(ball);
         this.repositionBalls();
 
-        this.scene.checkWord(this.getCurrentWord());
+        // Notify scene to update logic (check word, update keyboard)
+        this.scene.handleInputUpdate(this.getCurrentWord());
     }
 
     /**
@@ -101,7 +100,9 @@ export class InputAreaManager {
         this.explodeBalls([ball]);
 
         this.repositionBalls();
-        this.scene.checkWord(this.getCurrentWord());
+
+        // Notify scene to update logic
+        this.scene.handleInputUpdate(this.getCurrentWord());
     }
 
     /**
@@ -112,7 +113,6 @@ export class InputAreaManager {
         if (count === 0) return;
 
         const gap = 70;
-        // Start from the left edge of the input area plus some padding
         const startX = (-this.areaWidth / 2) + 50;
 
         this.activeBalls.forEach((ball, index) => {
@@ -133,9 +133,7 @@ export class InputAreaManager {
     }
 
     clearInput() {
-        // Explode all active balls
         if (this.activeBalls.length > 0) {
-            // Move balls to world space first for correct particle positioning
             const ballsToExplode = [...this.activeBalls];
 
             ballsToExplode.forEach(ball => {
@@ -146,18 +144,48 @@ export class InputAreaManager {
 
             this.explodeBalls(ballsToExplode);
             this.activeBalls = [];
-            this.scene.checkWord("");
+
+            // Notify scene
+            this.scene.handleInputUpdate("");
         }
     }
 
     /**
-     * Explodes specific balls.
-     * @param {Array} ballsToExplode
+     * Auto-completes the word by spawning balls for the remaining characters.
+     * @param {string} fullWord - The target word to complete.
      */
+    fillWord(fullWord) {
+        const currentWord = this.getCurrentWord();
+
+        // Safety check: ensure fullWord starts with currentWord
+        if (!fullWord.startsWith(currentWord)) return;
+
+        const remainingChars = fullWord.substring(currentWord.length).split('');
+
+        // We need to spawn balls. We can use the InputManager's spawn logic logic
+        // or create a simple version here since they go straight into the box.
+        remainingChars.forEach((char, index) => {
+            // Delay slightly for visual effect
+            this.scene.time.delayedCall(index * 100, () => {
+                // Create a ball at the input container position (simulating a drop)
+                // We use the scene's InputManager to spawn consistent ball visuals
+                const spawnX = this.inputContainer.x;
+                const spawnY = this.inputContainer.y - 100; // Start slightly above
+
+                const ball = this.scene.inputManager.spawnBall(spawnX, spawnY, char);
+
+                // Add it to the input area immediately
+                this.addBall(ball);
+
+                // Play sound
+                this.scene.sound.play('drop_valid', { volume: 0.5 });
+            });
+        });
+    }
+
     explodeBalls(ballsToExplode) {
         if (!ballsToExplode || ballsToExplode.length === 0) return;
 
-        // Create a particle emitter manager
         const emitter = this.scene.add.particles(0, 0, 'particle', {
             speed: { min: 50, max: 200 },
             scale: { start: 1, end: 0 },
@@ -169,17 +197,11 @@ export class InputAreaManager {
         });
 
         ballsToExplode.forEach(ball => {
-            // Emit particles at ball position
-            emitter.emitParticleAt(ball.x, ball.y, 20); // 20 particles per ball
-
-            // Play a sound (pitch shifted up for effect)
+            emitter.emitParticleAt(ball.x, ball.y, 20);
             this.scene.sound.play('bounce1', { volume: 0.5, rate: 1.5 });
-
-            // Destroy the ball
             ball.destroy();
         });
 
-        // Clean up the emitter after particles are gone
         this.scene.time.delayedCall(1000, () => {
             emitter.destroy();
         });

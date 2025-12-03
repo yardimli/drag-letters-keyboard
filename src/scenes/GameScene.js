@@ -27,9 +27,16 @@ export class GameScene extends Phaser.Scene {
         this.createBallTexture();
         this.createParticleTexture();
 
-        // Data
-        this.dictionary = this.registry.get('dictionary') || [];
+        // --- Data Initialization ---
+        const allWords = this.registry.get('dictionary') || [];
+        const lang = this.registry.get('language') || 'en';
+
+        // Filter dictionary based on selected language
+        this.dictionary = allWords.filter(w => w.lang === lang);
+        console.log(`Game Dictionary: ${this.dictionary.length} words for language '${lang}'`);
+
         this.currentImage = null;
+        this.suggestionText = null;
 
         // Managers
         this.keyboardManager = new KeyboardManager(this);
@@ -41,8 +48,35 @@ export class GameScene extends Phaser.Scene {
         this.inputAreaManager.create();
         this.inputManager.create();
 
+        // Create Suggestion UI
+        this.createSuggestionUI();
+
+        // Initial Game State Update (Enable starting keys)
+        this.handleInputUpdate("");
+
         // Event Listeners
         this.scale.on('resize', this.resize, this);
+    }
+
+    createSuggestionUI() {
+        const width = this.scale.width;
+        // Positioned above the input box
+        this.suggestionText = this.add.text(width / 2, this.inputAreaManager.yPos + 80, "", {
+            fontSize: '24px',
+            fontStyle: 'italic',
+            color: '#ffff00',
+            backgroundColor: '#00000088',
+            padding: { x: 10, y: 5 }
+        }).setOrigin(0.5).setAlpha(0);
+
+        this.suggestionText.setInteractive({ useHandCursor: true });
+
+        this.suggestionText.on('pointerdown', () => {
+            if (this.suggestionText.visible && this.suggestionText.targetWord) {
+                this.sound.play('click');
+                this.inputAreaManager.fillWord(this.suggestionText.targetWord);
+            }
+        });
     }
 
     createBackground() {
@@ -91,7 +125,6 @@ export class GameScene extends Phaser.Scene {
         texture.refresh();
     }
 
-
     handleBallDrop(ball) {
         const bounds = this.inputAreaManager.getBounds();
 
@@ -118,6 +151,60 @@ export class GameScene extends Phaser.Scene {
                 ball.destroy();
             }
         });
+    }
+
+    /**
+     * Central logic for game flow.
+     * Called whenever the input changes (ball added/removed).
+     * 1. Checks if current word is complete.
+     * 2. Filters dictionary for valid next steps.
+     * 3. Updates keyboard availability.
+     * 4. Updates suggestion UI.
+     */
+    handleInputUpdate(currentWord) {
+        // 1. Check for exact match (Success)
+        this.checkWord(currentWord);
+
+        // 2. Filter dictionary for words starting with current input
+        const potentialMatches = this.dictionary.filter(w => w.text.startsWith(currentWord));
+
+        // 3. Determine valid next characters
+        // We look at the character at index = currentWord.length
+        const validNextChars = [];
+        potentialMatches.forEach(w => {
+            if (w.text.length > currentWord.length) {
+                const nextChar = w.text[currentWord.length];
+                if (!validNextChars.includes(nextChar)) {
+                    validNextChars.push(nextChar);
+                }
+            }
+        });
+
+        // Update Keyboard
+        this.keyboardManager.updateKeyAvailability(validNextChars);
+
+        // 4. Handle Suggestion
+        // If only one potential match remains and it's longer than current input
+        if (potentialMatches.length === 1 && potentialMatches[0].text.length > currentWord.length) {
+            const match = potentialMatches[0];
+            this.suggestionText.setText(`Suggestion: ${match.text} (Click to finish)`);
+            this.suggestionText.targetWord = match.text;
+            this.suggestionText.setAlpha(1);
+
+            // Pulse animation
+            this.tweens.add({
+                targets: this.suggestionText,
+                scale: { from: 1, to: 1.05 },
+                yoyo: true,
+                repeat: -1,
+                duration: 800
+            });
+        } else {
+            this.suggestionText.setAlpha(0);
+            this.suggestionText.targetWord = null;
+            this.tweens.killTweensOf(this.suggestionText);
+            this.suggestionText.setScale(1);
+        }
     }
 
     checkWord(word) {
@@ -155,27 +242,19 @@ export class GameScene extends Phaser.Scene {
     displayImage(key) {
         if (this.currentImage) this.currentImage.destroy();
 
-        // --- Calculate Position: Right side of the input box ---
-        // Input container is centered at (width/2, yPos)
-        // Input width is 600. Right edge is x + 300.
-        // We add some padding (e.g., 20px) + half the image width (approximate placeholder)
-
         const inputMgr = this.inputAreaManager;
         const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
-        const targetX = inputRightEdge + 10; // 10px padding from the box
-        const targetY = inputMgr.inputContainer.y; // Aligned vertically with input box
+        const targetX = inputRightEdge + 10;
+        const targetY = inputMgr.inputContainer.y;
 
         this.currentImage = this.add.image(targetX, targetY, key);
-        this.currentImage.setOrigin(0, 0.5); // Origin left-center to grow outwards to the right
+        this.currentImage.setOrigin(0, 0.5);
 
-        // --- Resize to fit Input Area Height ---
         const targetHeight = inputMgr.areaHeight;
-        // Scale based on height to match the input box
         const scale = targetHeight / this.currentImage.height;
 
-        this.currentImage.setScale(0); // Start invisible for tween
+        this.currentImage.setScale(0);
 
-        // Animate In
         this.tweens.add({
             targets: this.currentImage,
             scale: scale,
@@ -183,7 +262,6 @@ export class GameScene extends Phaser.Scene {
             ease: 'Back.Out'
         });
 
-        // --- Auto-hide after 3 seconds ---
         this.time.delayedCall(3000, () => {
             if (this.currentImage && this.currentImage.active) {
                 this.tweens.add({
@@ -223,11 +301,19 @@ export class GameScene extends Phaser.Scene {
         this.keyboardManager.resize(width, height);
         this.inputAreaManager.resize(width, height);
 
-        // If an image is currently displayed, update its position
         if (this.currentImage && this.currentImage.active) {
             const inputMgr = this.inputAreaManager;
             const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
             this.currentImage.setPosition(inputRightEdge + 10, inputMgr.inputContainer.y);
         }
+
+        // Reposition suggestion text
+        if (this.suggestionText) {
+            this.suggestionText.setPosition(width / 2, this.inputAreaManager.yPos - 80);
+        }
+
+        // Re-apply key states after resize (since keyboard is redrawn)
+        const currentWord = this.inputAreaManager.getCurrentWord();
+        this.handleInputUpdate(currentWord);
     }
 }

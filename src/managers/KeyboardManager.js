@@ -62,7 +62,6 @@ export class KeyboardManager {
         container.add([ballImage, text]);
 
         // Interaction
-        // MODIFIED: Added draggable: true so drag events fire
         container.setInteractive({ draggable: true, useHandCursor: true });
 
         // Metadata for InputManager
@@ -72,7 +71,35 @@ export class KeyboardManager {
         return container;
     }
 
+    /**
+     * Updates the visual state and interactivity of keys based on valid next characters.
+     * @param {Array<string>} validChars - List of characters that are allowed next.
+     */
+    updateKeyAvailability(validChars) {
+        this.keys.forEach(keyContainer => {
+            const char = keyContainer.char;
+            // Check if this character is in the allowed list
+            // If validChars is null/empty but we are at start, usually all are enabled,
+            // but logic in GameScene handles the specific list.
+            const isValid = validChars.includes(char);
+
+            if (isValid) {
+                keyContainer.setAlpha(1);
+                keyContainer.setInteractive(); // Re-enable interaction
+                const ball = keyContainer.list[0];
+                if (ball) ball.setTint(0x0077ff); // Restore blue color
+            } else {
+                keyContainer.setAlpha(0.3);
+                keyContainer.disableInteractive(); // Disable interaction (cannot drag)
+                const ball = keyContainer.list[0];
+                if (ball) ball.setTint(0x555555); // Grey out
+            }
+        });
+    }
+
     resize(width, height) {
         this.drawKeyboard();
+        // Note: After resize, keys are recreated, so GameScene needs to re-apply availability.
+        // This is handled by the GameScene calling updateGameFlow() after resize usually.
     }
 }

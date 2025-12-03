@@ -1,7 +1,10 @@
 import { GameScene } from './scenes/GameScene.js';
 
-// MODIFIED: Simplified to load data and launch GameScene directly
-export async function launchGame() {
+/**
+ * Launches the game with the specific language configuration.
+ * @param {string} language - The language code selected by the user (e.g., 'en', 'zh').
+ */
+export async function launchGame(language) {
     let allWords = [];
 
     try {
@@ -36,15 +39,15 @@ export async function launchGame() {
                 debug: false
             }
         },
-        // MODIFIED: Only GameScene is needed now
         scene: [GameScene]
     };
 
     const game = new Phaser.Game(config);
 
     // --- Store Data in Registry ---
-    // We store the full list of words to check against user input
+    // We store the full list, but we also pass the language setting to the scene
     game.registry.set('dictionary', allWords);
+    game.registry.set('language', language);
 
     return game;
 }
