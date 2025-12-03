@@ -1,0 +1,5 @@
+add voice to words with openai whisper, create and save the mp3 in admin
+play voice file when full word is typed
+add llm function to expand dictionary
+add placeholder image for words without images
+add keyboard layout for different languages
