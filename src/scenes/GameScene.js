@@ -30,7 +30,6 @@ export class GameScene extends Phaser.Scene {
         // Data
         this.dictionary = this.registry.get('dictionary') || [];
         this.currentImage = null;
-        this.currentWordTextObj = null;
 
         // Managers
         this.keyboardManager = new KeyboardManager(this);
@@ -44,8 +43,6 @@ export class GameScene extends Phaser.Scene {
 
         // Event Listeners
         this.scale.on('resize', this.resize, this);
-
-        this.createWordDisplay();
     }
 
     createBackground() {
@@ -95,17 +92,6 @@ export class GameScene extends Phaser.Scene {
     }
 
 
-    createWordDisplay() {
-        // Positioned at y=100 (Top area) to avoid overlaying the keyboard at the bottom
-        this.currentWordTextObj = this.add.text(this.scale.width / 2, 100, "", {
-            fontSize: '48px',
-            fontStyle: 'bold',
-            color: '#00ff00',
-            stroke: '#000000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-    }
-
     handleBallDrop(ball) {
         const bounds = this.inputAreaManager.getBounds();
 
@@ -141,8 +127,6 @@ export class GameScene extends Phaser.Scene {
             this.currentImage = null;
         }
 
-        this.currentWordTextObj.setText("");
-
         if (!word || word.length === 0) return;
 
         const match = this.dictionary.find(w => w.text === word);
@@ -154,8 +138,6 @@ export class GameScene extends Phaser.Scene {
 
     showSuccess(wordObj) {
         this.sound.play('bounce3');
-
-        this.currentWordTextObj.setText(wordObj.text);
 
         if (wordObj.image) {
             if (this.textures.exists(wordObj.text)) {
@@ -240,10 +222,6 @@ export class GameScene extends Phaser.Scene {
 
         this.keyboardManager.resize(width, height);
         this.inputAreaManager.resize(width, height);
-
-        if (this.currentWordTextObj) {
-            this.currentWordTextObj.setPosition(width / 2, 100);
-        }
 
         // If an image is currently displayed, update its position
         if (this.currentImage && this.currentImage.active) {
