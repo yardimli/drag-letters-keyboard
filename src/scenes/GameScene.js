@@ -3,11 +3,11 @@ import { InputAreaManager } from '../managers/InputAreaManager.js';
 import { InputManager } from '../managers/InputManager.js';
 
 export class GameScene extends Phaser.Scene {
-    constructor() {
+    constructor () {
         super({ key: 'GameScene' });
     }
 
-    preload() {
+    preload () {
         // Audio Assets
         this.load.audio('drop', 'assets/audio/DSGNBass_Smooth Sub Drop Bass Downer.wav');
         this.load.audio('bounce1', 'assets/audio/basketball_bounce_single_3.wav');
@@ -19,7 +19,7 @@ export class GameScene extends Phaser.Scene {
         this.load.audio('drop_invalid', 'assets/audio/Hit Item Dropped 2.wav');
     }
 
-    create() {
+    create () {
         // Fade in transition
         this.cameras.main.fadeIn(500, 0, 0, 0);
 
@@ -58,10 +58,13 @@ export class GameScene extends Phaser.Scene {
         this.scale.on('resize', this.resize, this);
     }
 
-    createSuggestionUI() {
+    createSuggestionUI () {
         const width = this.scale.width;
+        const isMobile = width < 700;
+        const offset = isMobile ? -130 : -100;
+
         // Positioned above the input box
-        this.suggestionText = this.add.text(width / 2, this.inputAreaManager.yPos + 80, "", {
+        this.suggestionText = this.add.text(width / 2, this.inputAreaManager.yPos - offset, "", {
             fontSize: '24px',
             fontStyle: 'italic',
             color: '#ffff00',
@@ -79,7 +82,7 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
-    createBackground() {
+    createBackground () {
         const width = this.scale.width;
         const height = this.scale.height;
         this.bgGraphics = this.add.graphics();
@@ -88,7 +91,7 @@ export class GameScene extends Phaser.Scene {
         this.bgGraphics.setDepth(-100);
     }
 
-    createBallTexture() {
+    createBallTexture () {
         if (this.textures.exists('ball3d')) return;
         const size = 64;
         const texture = this.textures.createCanvas('ball3d', size, size);
@@ -113,7 +116,7 @@ export class GameScene extends Phaser.Scene {
         texture.refresh();
     }
 
-    createParticleTexture() {
+    createParticleTexture () {
         if (this.textures.exists('particle')) return;
         const size = 16;
         const texture = this.textures.createCanvas('particle', size, size);
@@ -125,7 +128,7 @@ export class GameScene extends Phaser.Scene {
         texture.refresh();
     }
 
-    handleBallDrop(ball) {
+    handleBallDrop (ball) {
         const bounds = this.inputAreaManager.getBounds();
 
         if (bounds.contains(ball.x, ball.y)) {
@@ -136,7 +139,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    returnBallToKeyboard(ball) {
+    returnBallToKeyboard (ball) {
         this.sound.play('bounce1', { volume: 0.5 });
 
         if (ball.body) ball.body.enable = false;
@@ -161,7 +164,7 @@ export class GameScene extends Phaser.Scene {
      * 3. Updates keyboard availability.
      * 4. Updates suggestion UI.
      */
-    handleInputUpdate(currentWord) {
+    handleInputUpdate (currentWord) {
         // 1. Check for exact match (Success)
         this.checkWord(currentWord);
 
@@ -187,7 +190,7 @@ export class GameScene extends Phaser.Scene {
         // If only one potential match remains and it's longer than current input
         if (potentialMatches.length === 1 && potentialMatches[0].text.length > currentWord.length) {
             const match = potentialMatches[0];
-            this.suggestionText.setText(`Suggestion: ${match.text} (Click to finish)`);
+            this.suggestionText.setText(`Suggestion: ${match.text}`);
             this.suggestionText.targetWord = match.text;
             this.suggestionText.setAlpha(1);
 
@@ -207,7 +210,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    checkWord(word) {
+    checkWord (word) {
         // If the word changes or is cleared, remove the current image immediately
         if (this.currentImage) {
             this.currentImage.destroy();
@@ -223,7 +226,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    showSuccess(wordObj) {
+    showSuccess (wordObj) {
         this.sound.play('bounce3');
 
         if (wordObj.image) {
@@ -239,16 +242,37 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    displayImage(key) {
+    displayImage (key) {
         if (this.currentImage) this.currentImage.destroy();
 
+        const width = this.scale.width;
+        const isMobile = width < 700;
         const inputMgr = this.inputAreaManager;
-        const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
-        const targetX = inputRightEdge + 10;
-        const targetY = inputMgr.inputContainer.y;
+
+        let targetX, targetY;
+        let originX, originY;
+
+        if (isMobile) {
+            // Position under the input box
+            // Input box center is inputMgr.inputContainer.y
+            // Box height is 100 (extends 50 down)
+            // Clear button is at +80 (extends 100 down)
+            // So place image at +110 to be safe
+            targetX = width / 2;
+            targetY = inputMgr.inputContainer.y + (inputMgr.areaHeight / 2) + 70;
+            originX = 0.5;
+            originY = 0; // Anchor at top of image
+        } else {
+            // Position to the right of the input box
+            const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
+            targetX = inputRightEdge + 10;
+            targetY = inputMgr.inputContainer.y;
+            originX = 0;
+            originY = 0.5;
+        }
 
         this.currentImage = this.add.image(targetX, targetY, key);
-        this.currentImage.setOrigin(0, 0.5);
+        this.currentImage.setOrigin(originX, originY);
 
         const targetHeight = inputMgr.areaHeight;
         const scale = targetHeight / this.currentImage.height;
@@ -280,13 +304,13 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
-    update() {
+    update () {
         if (this.inputManager) {
             this.inputManager.update();
         }
     }
 
-    resize(gameSize) {
+    resize (gameSize) {
         const width = gameSize.width;
         const height = gameSize.height;
 
@@ -301,15 +325,26 @@ export class GameScene extends Phaser.Scene {
         this.keyboardManager.resize(width, height);
         this.inputAreaManager.resize(width, height);
 
+        // Re-position active image if it exists
         if (this.currentImage && this.currentImage.active) {
+            const isMobile = width < 700;
             const inputMgr = this.inputAreaManager;
-            const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
-            this.currentImage.setPosition(inputRightEdge + 10, inputMgr.inputContainer.y);
+
+            if (isMobile) {
+                this.currentImage.setOrigin(0.5, 0);
+                this.currentImage.setPosition(width / 2, inputMgr.inputContainer.y + (inputMgr.areaHeight / 2) + 70);
+            } else {
+                this.currentImage.setOrigin(0, 0.5);
+                const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
+                this.currentImage.setPosition(inputRightEdge + 10, inputMgr.inputContainer.y);
+            }
         }
 
         // Reposition suggestion text
         if (this.suggestionText) {
-            this.suggestionText.setPosition(width / 2, this.inputAreaManager.yPos - 80);
+            const isMobile = width < 700;
+            const offset = isMobile ? -100 : 80;
+            this.suggestionText.setPosition(width / 2, this.inputAreaManager.yPos - offset);
         }
 
         // Re-apply key states after resize (since keyboard is redrawn)

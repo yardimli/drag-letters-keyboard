@@ -2,7 +2,7 @@
  * Manages the visual keyboard at the bottom using 3D balls.
  */
 export class KeyboardManager {
-    constructor(scene) {
+    constructor (scene) {
         this.scene = scene;
         this.keys = [];
         this.keyGroup = this.scene.add.container();
@@ -13,22 +13,38 @@ export class KeyboardManager {
         this.padding = 10;
     }
 
-    create() {
+    create () {
         this.drawKeyboard();
     }
 
-    drawKeyboard() {
+    drawKeyboard () {
         this.keyGroup.removeAll(true);
         this.keys = [];
 
         const screenWidth = this.scene.scale.width;
         const screenHeight = this.scene.scale.height;
 
-        // Layout settings
-        const maxCols = 10;
-        const totalWidth = (maxCols * this.keySize) + ((maxCols - 1) * this.padding);
-        const startX = (screenWidth - totalWidth) / 2 + (this.keySize / 2);
-        const startY = screenHeight - 250;
+        // --- Responsive Layout Logic ---
+        const itemWidth = this.keySize + this.padding;
+        const availableWidth = screenWidth - (this.padding * 2);
+
+        // Calculate how many columns fit on screen
+        let maxCols = Math.floor(availableWidth / itemWidth);
+
+        // Constraints
+        if (maxCols > 10) maxCols = 10; // Maximum 10 columns on desktop
+        if (maxCols < 3) maxCols = 3;   // Minimum 3 columns on very small screens
+
+        // Calculate total rows needed
+        const totalRows = Math.ceil(this.letters.length / maxCols);
+
+        // Center the grid horizontally
+        const totalGridWidth = (maxCols * this.keySize) + ((maxCols - 1) * this.padding);
+        const startX = (screenWidth - totalGridWidth) / 2 + (this.keySize / 2);
+
+        // Position at bottom, adjusting for number of rows
+        const gridHeight = (totalRows * this.keySize) + ((totalRows - 1) * this.padding);
+        const startY = screenHeight - gridHeight - 50; // 50px padding from bottom
 
         this.letters.forEach((char, index) => {
             const col = index % maxCols;
@@ -43,7 +59,7 @@ export class KeyboardManager {
         });
     }
 
-    createKeyBall(x, y, char) {
+    createKeyBall (x, y, char) {
         const container = this.scene.add.container(x, y);
         container.setSize(this.keySize, this.keySize);
 
@@ -75,12 +91,10 @@ export class KeyboardManager {
      * Updates the visual state and interactivity of keys based on valid next characters.
      * @param {Array<string>} validChars - List of characters that are allowed next.
      */
-    updateKeyAvailability(validChars) {
+    updateKeyAvailability (validChars) {
         this.keys.forEach(keyContainer => {
             const char = keyContainer.char;
             // Check if this character is in the allowed list
-            // If validChars is null/empty but we are at start, usually all are enabled,
-            // but logic in GameScene handles the specific list.
             const isValid = validChars.includes(char);
 
             if (isValid) {
@@ -97,7 +111,7 @@ export class KeyboardManager {
         });
     }
 
-    resize(width, height) {
+    resize (width, height) {
         this.drawKeyboard();
         // Note: After resize, keys are recreated, so GameScene needs to re-apply availability.
         // This is handled by the GameScene calling updateGameFlow() after resize usually.

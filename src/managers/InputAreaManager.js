@@ -2,58 +2,101 @@
  * Manages the input box and the balls dropped into it.
  */
 export class InputAreaManager {
-    constructor(scene) {
+    constructor (scene) {
         this.scene = scene;
         this.inputContainer = null;
         this.activeBalls = [];
         this.inputBg = null;
+        this.label = null;
+        this.clearBtn = null;
 
         this.areaWidth = 600;
         this.areaHeight = 100;
         this.yPos = 0;
     }
 
-    create() {
+    create () {
         const width = this.scene.scale.width;
+        // Position near the top to allow space for image and keyboard below
         this.yPos = 100;
 
+        // Container holds background, label, button, and balls
         this.inputContainer = this.scene.add.container(width / 2, this.yPos);
 
+        this.drawLayout();
+    }
+
+    /**
+     * Draws or redraws the static UI elements (Background, Button, Label)
+     * based on the current screen size.
+     */
+    drawLayout () {
+        const width = this.scene.scale.width;
+        const isMobile = width < 700;
+
+        // 1. Determine Dimensions
+        // On mobile, use 90% of screen width. On desktop, cap at 600.
+        this.areaWidth = isMobile ? width * 0.9 : 600;
+
+        // 2. Cleanup existing UI elements (but keep balls)
+        if (this.inputBg) this.inputBg.destroy();
+        if (this.label) this.label.destroy();
+        if (this.clearBtn) this.clearBtn.destroy();
+
+        // 3. Create Background
         this.inputBg = this.scene.add.rectangle(0, 0, this.areaWidth, this.areaHeight, 0x222222);
         this.inputBg.setStrokeStyle(4, 0x00ffff);
         this.inputBg.setAlpha(0.8);
 
-        const label = this.scene.add.text(-this.areaWidth / 2, -this.areaHeight / 2 - 30, "DRAG LETTERS HERE", {
+        // 4. Create Label
+        this.label = this.scene.add.text(-this.areaWidth / 2, -this.areaHeight / 2 - 30, "DRAG LETTERS HERE", {
             fontSize: '16px',
             color: '#00ffff'
         });
 
-        this.inputContainer.add([this.inputBg, label]);
+        // Add to container (send to back so balls appear on top)
+        this.inputContainer.add([this.inputBg, this.label]);
+        this.inputContainer.sendToBack(this.inputBg);
 
-        this.createClearButton();
+        // 5. Create Clear Button
+        this.createClearButton(isMobile);
+
+        // 6. Re-align any existing balls
+        this.repositionBalls();
     }
 
-    createClearButton() {
-        const btnX = this.areaWidth / 2 + 60;
-        const btn = this.scene.add.container(btnX, 0);
+    createClearButton (isMobile) {
+        let btnX, btnY;
+
+        if (isMobile) {
+            // Under the input box
+            btnX = 0;
+            btnY = this.areaHeight / 2 + 30;
+        } else {
+            // To the right of the input box
+            btnX = this.areaWidth / 2 + 60;
+            btnY = 0;
+        }
+
+        this.clearBtn = this.scene.add.container(btnX, btnY);
 
         const bg = this.scene.add.rectangle(0, 0, 80, 40, 0xcc0000);
         bg.setStrokeStyle(2, 0xffffff);
         const text = this.scene.add.text(0, 0, "CLEAR", { fontSize: '16px', fontStyle: 'bold' }).setOrigin(0.5);
 
-        btn.add([bg, text]);
-        btn.setSize(80, 40);
-        btn.setInteractive({ useHandCursor: true });
+        this.clearBtn.add([bg, text]);
+        this.clearBtn.setSize(80, 40);
+        this.clearBtn.setInteractive({ useHandCursor: true });
 
-        btn.on('pointerdown', () => {
+        this.clearBtn.on('pointerdown', () => {
             this.scene.sound.play('click');
             this.clearInput();
         });
 
-        this.inputContainer.add(btn);
+        this.inputContainer.add(this.clearBtn);
     }
 
-    addBall(ball) {
+    addBall (ball) {
         if (ball.body) {
             ball.body.enable = false;
             ball.body.setVelocity(0, 0);
@@ -87,7 +130,7 @@ export class InputAreaManager {
      * Removes a specific ball with an explosion effect.
      * @param {Phaser.GameObjects.Container} ball
      */
-    popBall(ball) {
+    popBall (ball) {
         // Remove from active array
         this.activeBalls = this.activeBalls.filter(b => b !== ball);
 
@@ -107,13 +150,25 @@ export class InputAreaManager {
 
     /**
      * Repositions balls to be Left Aligned.
+     * Dynamically adjusts gap if balls exceed width.
      */
-    repositionBalls() {
+    repositionBalls () {
         const count = this.activeBalls.length;
         if (count === 0) return;
 
-        const gap = 70;
-        const startX = (-this.areaWidth / 2) + 50;
+        // Default gap
+        let gap = 70;
+        const padding = 50;
+        const availableWidth = this.areaWidth - (padding * 2);
+
+        // If balls take up too much space, shrink the gap
+        if ((count * gap) > availableWidth) {
+            gap = availableWidth / count;
+        }
+
+        // Center the group of balls within the area
+        const totalGroupWidth = (count - 1) * gap;
+        const startX = -totalGroupWidth / 2;
 
         this.activeBalls.forEach((ball, index) => {
             const targetX = startX + (index * gap);
@@ -128,11 +183,11 @@ export class InputAreaManager {
         });
     }
 
-    getCurrentWord() {
+    getCurrentWord () {
         return this.activeBalls.map(b => b.char).join('');
     }
 
-    clearInput() {
+    clearInput () {
         if (this.activeBalls.length > 0) {
             const ballsToExplode = [...this.activeBalls];
 
@@ -154,7 +209,7 @@ export class InputAreaManager {
      * Auto-completes the word by spawning balls for the remaining characters.
      * @param {string} fullWord - The target word to complete.
      */
-    fillWord(fullWord) {
+    fillWord (fullWord) {
         const currentWord = this.getCurrentWord();
 
         // Safety check: ensure fullWord starts with currentWord
@@ -162,13 +217,9 @@ export class InputAreaManager {
 
         const remainingChars = fullWord.substring(currentWord.length).split('');
 
-        // We need to spawn balls. We can use the InputManager's spawn logic logic
-        // or create a simple version here since they go straight into the box.
         remainingChars.forEach((char, index) => {
             // Delay slightly for visual effect
             this.scene.time.delayedCall(index * 100, () => {
-                // Create a ball at the input container position (simulating a drop)
-                // We use the scene's InputManager to spawn consistent ball visuals
                 const spawnX = this.inputContainer.x;
                 const spawnY = this.inputContainer.y - 100; // Start slightly above
 
@@ -183,7 +234,7 @@ export class InputAreaManager {
         });
     }
 
-    explodeBalls(ballsToExplode) {
+    explodeBalls (ballsToExplode) {
         if (!ballsToExplode || ballsToExplode.length === 0) return;
 
         const emitter = this.scene.add.particles(0, 0, 'particle', {
@@ -207,7 +258,7 @@ export class InputAreaManager {
         });
     }
 
-    getBounds() {
+    getBounds () {
         const matrix = this.inputBg.getWorldTransformMatrix();
         return new Phaser.Geom.Rectangle(
             matrix.tx - this.areaWidth / 2,
@@ -217,8 +268,12 @@ export class InputAreaManager {
         );
     }
 
-    resize(width, height) {
-        this.yPos = height / 2 + 50;
+    resize (width, height) {
+        // Keep the input box near the top (100px or 15% of height) to allow space below
+        this.yPos = Math.max(100, height * 0.15);
         this.inputContainer.setPosition(width / 2, this.yPos);
+
+        // Redraw layout to adjust width and button position
+        this.drawLayout();
     }
 }
