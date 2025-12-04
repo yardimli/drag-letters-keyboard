@@ -263,6 +263,9 @@ export class GameScene extends Phaser.Scene {
         this.playWordAudio(wordObj);
         this.showImage(wordObj);
         
+        // NEW: Always clear any previous timer to prevent premature fading of the new image
+        if (this.clearTimer) this.time.removeEvent(this.clearTimer);
+        
         if (this.isSentenceMode) {
             // Commit logic for sentence mode
             this.inputAreaManager.commitCurrentWord();
@@ -271,10 +274,25 @@ export class GameScene extends Phaser.Scene {
             // This enables all starting letters again
             this.handleInputUpdate("");
             
+            // NEW: Hide image after delay (same duration as single mode)
+            // But we do NOT clear input here because it's part of the sentence
+            this.clearTimer = this.time.delayedCall(3000, () => {
+                if (this.currentImage) {
+                    this.tweens.add({
+                        targets: this.currentImage,
+                        alpha: 0,
+                        duration: 300,
+                        onComplete: () => {
+                            if (this.currentImage) this.currentImage.destroy();
+                            this.currentImage = null;
+                        }
+                    });
+                }
+            });
+            
             return true; // Signal that reset occurred
         } else {
             // Single Word Mode: Clear after 3 seconds
-            if (this.clearTimer) this.time.removeEvent(this.clearTimer);
             
             this.clearTimer = this.time.delayedCall(3000, () => {
                 this.inputAreaManager.clearInput();
