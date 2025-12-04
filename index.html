@@ -13,13 +13,13 @@
 			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 			color: white;
 		}
-
+		
 		/* Game Canvas Styles */
 		canvas {
 			display: block;
 			cursor: none; /* Hide default cursor when game is running */
 		}
-
+		
 		/* UI Overlay (Menu & Loading) */
 		#ui-layer {
 			position: fixed;
@@ -36,30 +36,30 @@
 			z-index: 1000;
 			transition: opacity 0.5s;
 		}
-
+		
 		.hidden {
 			opacity: 0;
 			pointer-events: none;
 		}
-
+		
 		h1 {
 			font-size: 48px;
 			margin-bottom: 40px;
 			text-shadow: 0 4px 10px rgba(0,0,0,0.5);
 		}
-
+		
 		.control-group {
 			margin-bottom: 20px;
 			text-align: center;
 		}
-
+		
 		label {
 			display: block;
 			margin-bottom: 10px;
 			font-size: 18px;
 			font-weight: bold;
 		}
-
+		
 		select {
 			padding: 12px 20px;
 			font-size: 18px;
@@ -70,7 +70,7 @@
 			cursor: pointer;
 			min-width: 200px;
 		}
-
+		
 		button#start-btn {
 			padding: 15px 40px;
 			font-size: 24px;
@@ -84,12 +84,12 @@
 			transition: transform 0.2s, background 0.2s;
 			margin-top: 20px;
 		}
-
+		
 		button#start-btn:hover {
 			background: #00aa38;
 			transform: scale(1.05);
 		}
-
+		
 		.admin-link {
 			position: absolute;
 			bottom: 20px;
@@ -102,13 +102,13 @@
 			border-radius: 4px;
 			transition: 0.3s;
 		}
-
+		
 		.admin-link:hover {
 			color: white;
 			border-color: white;
 			background: rgba(255, 255, 255, 0.1);
 		}
-
+		
 		#loading-text {
 			display: none;
 			font-size: 24px;
@@ -123,7 +123,7 @@
 
 <div id="ui-layer">
 	<h1>Spelling Game</h1>
-
+	
 	<div id="menu-controls">
 		<div class="control-group">
 			<label for="lang-select">Select Language</label>
@@ -131,79 +131,77 @@
 				<option value="" disabled selected>Loading languages...</option>
 			</select>
 		</div>
-
+		
 		<button id="start-btn" disabled>START GAME</button>
 	</div>
-
+	
 	<div id="loading-text">Loading Game Assets...</div>
-
+	
 	<a href="admin.php" class="admin-link">Admin Panel</a>
 </div>
 
 <!-- Game Entry Point -->
 <script type="module">
 	import { launchGame } from './src/main.js';
-
+	
 	const uiLayer = document.getElementById('ui-layer');
 	const menuControls = document.getElementById('menu-controls');
 	const langSelect = document.getElementById('lang-select');
 	const startBtn = document.getElementById('start-btn');
 	const loadingText = document.getElementById('loading-text');
-
+	
 	// 1. Fetch words to populate language dropdown
 	fetch('assets/words.json')
-			.then(response => response.json())
-			.then(data => {
-				langSelect.innerHTML = ''; // Clear loading text
-
-				if (data && data.words && data.words.length > 0) {
-					// Extract unique languages
-					const languages = [...new Set(data.words.map(w => w.lang))];
-
-					// Map codes to names (optional, can be expanded)
-					const langNames = {
-						'en': 'English',
-						'zh': 'Chinese',
-						'tr': 'Turkish',
-						'es': 'Spanish',
-						'fr': 'French'
-					};
-
-					languages.forEach(lang => {
-						const option = document.createElement('option');
-						option.value = lang;
-						option.textContent = langNames[lang] || lang.toUpperCase();
-						langSelect.appendChild(option);
-					});
-
-					startBtn.disabled = false;
-				} else {
+		.then(response => response.json())
+		.then(data => {
+			langSelect.innerHTML = ''; // Clear loading text
+			
+			let languages = {};
+			
+			// Use defined languages if available
+			if (data.languages) {
+				languages = data.languages;
+			} else if (data.words) {
+				// Fallback: extract unique languages from words
+				const uniqueLangs = [...new Set(data.words.map(w => w.lang))];
+				uniqueLangs.forEach(l => languages[l] = l.toUpperCase());
+			}
+			
+			if (Object.keys(languages).length > 0) {
+				for (const [code, name] of Object.entries(languages)) {
 					const option = document.createElement('option');
-					option.textContent = "No words found";
+					option.value = code;
+					option.textContent = name;
 					langSelect.appendChild(option);
 				}
-			})
-			.catch(err => {
-				console.error("Failed to load word list:", err);
-				langSelect.innerHTML = '<option>Error loading data</option>';
-			});
-
+				startBtn.disabled = false;
+			} else {
+				const option = document.createElement('option');
+				option.textContent = "No languages found";
+				langSelect.appendChild(option);
+			}
+		})
+		.catch(err => {
+			console.error("Failed to load word list:", err);
+			langSelect.innerHTML = '<option>Error loading data</option>';
+		});
+	
 	// 2. Handle Start Button
 	startBtn.addEventListener('click', async () => {
 		const selectedLang = langSelect.value;
 		if (!selectedLang) return;
-
+		
 		// UI Transition
 		menuControls.style.display = 'none';
 		loadingText.style.display = 'block';
-
+		
 		// Change cursor for game mode
 		document.body.style.cursor = 'none';
-
+		
 		try {
 			// Launch Phaser Game with selected language
 			await launchGame(selectedLang);
-
+			
 			// Hide UI completely
 			uiLayer.classList.add('hidden');
 		} catch (error) {
