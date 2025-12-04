@@ -8,7 +8,10 @@
 			exit;
 		}
 
-		// --- A. Generate Image Preview (FAL.AI) ---
+// Ensure we have the path variables (inherited from admin.php)
+// $uploadDir, $audioDir, $uploadUrl, $audioUrl, $jsonFile
+
+// --- A. Generate Image Preview (FAL.AI) ---
 		if ($_POST['action'] === 'generate_ai_preview') {
 			header('Content-Type: application/json');
 			$prompt = $_POST['prompt'] ?? '';
@@ -17,17 +20,20 @@
 				exit;
 			}
 
-			$outputPath = generateImage($prompt, $settings['fal_api_key'], $uploadDir);
+// Generate to physical path
+			$physicalPath = generateImage($prompt, $settings['fal_api_key'], $uploadDir);
 
-			if ($outputPath) {
-				echo json_encode(['success' => true, 'url' => $outputPath]);
+			if ($physicalPath) {
+// Return URL path
+				$urlPath = $uploadUrl . basename($physicalPath);
+				echo json_encode(['success' => true, 'url' => $urlPath]);
 			} else {
 				echo json_encode(['success' => false, 'error' => 'Failed to generate image']);
 			}
 			exit;
 		}
 
-		// --- B. Regenerate Audio ---
+// --- B. Regenerate Audio ---
 		if ($_POST['action'] === 'regenerate_audio') {
 			header('Content-Type: application/json');
 			$prompt = $_POST['prompt'] ?? '';
@@ -42,32 +48,50 @@
 				exit;
 			}
 
-			$audioPath = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
+// Generate to physical path
+			$physicalPath = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
 
-			if ($audioPath) {
-				// If index is provided, update the database immediately
+			if ($physicalPath) {
+				$urlPath = $audioUrl . basename($physicalPath);
+
+// If index is provided, update the database immediately
 				if ($index !== '' && isset($data['words'][$index])) {
-					if (!empty($data['words'][$index]['audio']) && file_exists($data['words'][$index]['audio'])) {
-						unlink($data['words'][$index]['audio']);
+// Cleanup old audio if exists
+					$oldAudioUrl = $data['words'][$index]['audio'] ?? '';
+					if (!empty($oldAudioUrl)) {
+						$oldPhysical = $audioDir . basename($oldAudioUrl);
+						if (file_exists($oldPhysical)) {
+							unlink($oldPhysical);
+						}
 					}
-					$data['words'][$index]['audio'] = $audioPath;
+
+					$data['words'][$index]['audio'] = $urlPath;
 					file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 				}
-				echo json_encode(['success' => true, 'url' => $audioPath]);
+				echo json_encode(['success' => true, 'url' => $urlPath]);
 			} else {
 				echo json_encode(['success' => false, 'error' => 'Failed to generate audio']);
 			}
 			exit;
 		}
 
-		// --- C. Scan for Missing Assets (Step 1 of Auto-Gen) ---
+// --- C. Scan for Missing Assets (Step 1 of Auto-Gen) ---
 		if ($_POST['action'] === 'scan_missing_assets') {
 			header('Content-Type: application/json');
 			$tasks = [];
 
 			foreach ($data['words'] as $idx => $word) {
-				// 1. Check Audio
-				if (empty($word['audio']) || !file_exists($word['audio'])) {
+// 1. Check Audio
+// We check if the file exists physically based on the stored URL
+				$audioExists = false;
+				if (!empty($word['audio'])) {
+					$physAudio = $audioDir . basename($word['audio']);
+					if (file_exists($physAudio)) {
+						$audioExists = true;
+					}
+				}
+
+				if (!$audioExists) {
 					$tasks[] = [
 						'index' => $idx,
 						'type' => 'audio',
@@ -76,11 +100,18 @@
 					];
 				}
 
-				// 2. Check Image (only if prompt exists)
-				$hasImage = !empty($word['image']) && file_exists($word['image']);
+// 2. Check Image (only if prompt exists)
+				$imageExists = false;
+				if (!empty($word['image'])) {
+					$physImage = $uploadDir . basename($word['image']);
+					if (file_exists($physImage)) {
+						$imageExists = true;
+					}
+				}
+
 				$hasPrompt = !empty($word['image_prompt']);
 
-				if (!$hasImage && $hasPrompt) {
+				if (!$imageExists && $hasPrompt) {
 					$tasks[] = [
 						'index' => $idx,
 						'type' => 'image',
@@ -94,7 +125,7 @@
 			exit;
 		}
 
-		// --- D. Generate Single Asset (Step 2 of Auto-Gen) ---
+// --- D. Generate Single Asset (Step 2 of Auto-Gen) ---
 		if ($_POST['action'] === 'generate_single_asset') {
 			header('Content-Type: application/json');
 			$index = $_POST['index'] ?? null;
@@ -114,9 +145,9 @@
 				$spelled = implode(', ', str_split($text));
 				$prompt = "Spell: " . $spelled . "\nSay cheerfully: " . $text;
 
-				$newAudio = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
-				if ($newAudio) {
-					$word['audio'] = $newAudio;
+				$newAudioPhys = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
+				if ($newAudioPhys) {
+					$word['audio'] = $audioUrl . basename($newAudioPhys);
 					$success = true;
 					$message = "Audio generated successfully.";
 				} else {
@@ -124,14 +155,18 @@
 				}
 			} elseif ($type === 'image') {
 				if (!empty($word['image_prompt'])) {
-					$newImage = generateImage($word['image_prompt'], $settings['fal_api_key'], $uploadDir);
-					if ($newImage) {
-						$word['image'] = $newImage;
-						// Create thumb
-						$pathInfo = pathinfo($newImage);
-						$thumbPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_thumb.jpg';
-						createThumbnail($newImage, $thumbPath, 256, 256);
-						$word['thumb'] = $thumbPath;
+					$newImagePhys = generateImage($word['image_prompt'], $settings['fal_api_key'], $uploadDir);
+					if ($newImagePhys) {
+						$word['image'] = $uploadUrl . basename($newImagePhys);
+
+// Create thumb
+						$pathInfo = pathinfo($newImagePhys);
+						$thumbName = $pathInfo['filename'] . '_thumb.jpg';
+						$thumbPhys = $pathInfo['dirname'] . '/' . $thumbName;
+
+						createThumbnail($newImagePhys, $thumbPhys, 256, 256);
+						$word['thumb'] = $uploadUrl . $thumbName;
+
 						$success = true;
 						$message = "Image generated successfully.";
 					} else {
@@ -143,7 +178,7 @@
 			}
 
 			if ($success) {
-				// Save immediately to persist progress
+// Save immediately to persist progress
 				file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 			}
 
@@ -151,7 +186,7 @@
 			exit;
 		}
 
-		// --- E. Generate Word List (LLM) ---
+// --- E. Generate Word List (LLM) ---
 		if ($_POST['action'] === 'generate_word_list') {
 			header('Content-Type: application/json');
 			$topic = $_POST['topic'] ?? '';
@@ -167,9 +202,9 @@
 
 			$systemPrompt = "You are a helper that generates vocabulary lists for a spelling game. Return ONLY valid JSON. No markdown formatting.";
 			$userPrompt = "Generate a list of 10 simple, single words related to the topic '$topic' in language '$lang'.
-        Also provide a short visual description for an image generator for each word.
-        Format: [{\"text\": \"WORD\", \"image_prompt\": \"visual description\"}].
-        Ensure words are uppercase. Do not include duplicates.";
+Also provide a short visual description for an image generator for each word.
+Format: [{\"text\": \"WORD\", \"image_prompt\": \"visual description\"}].
+Ensure words are uppercase. Do not include duplicates.";
 
 			$payload = [
 				"system_instruction" => ["parts" => [["text" => $systemPrompt]]],
@@ -187,7 +222,7 @@
 			$json = json_decode($response, true);
 			$rawText = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-			// Clean Markdown if present
+// Clean Markdown if present
 			$rawText = str_replace(['```json', '```'], '', $rawText);
 			$generatedWords = json_decode($rawText, true);
 
@@ -196,7 +231,7 @@
 				exit;
 			}
 
-			// Deduplicate against existing words
+// Deduplicate against existing words
 			$finalList = [];
 			foreach ($generatedWords as $gw) {
 				$isDuplicate = false;

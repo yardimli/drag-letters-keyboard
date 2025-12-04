@@ -3,9 +3,22 @@
 	session_start();
 	
 	$settings = require 'settings.php';
-	$jsonFile = 'assets/words.json';
-	$uploadDir = 'assets/uploads/';
-	$audioDir = 'assets/audio/';
+	
+	// --- NEW: Load Path Settings ---
+	// Fallback to defaults if not set in settings.php
+	$paths = $settings['paths'] ?? [
+		'upload_dir' => 'assets/uploads/',
+		'audio_dir' => 'assets/audio/',
+		'words_json' => 'assets/words.json',
+		'upload_url' => 'assets/uploads/',
+		'audio_url' => 'assets/audio/',
+	];
+	
+	$jsonFile = $paths['words_json'];
+	$uploadDir = $paths['upload_dir'];
+	$audioDir = $paths['audio_dir'];
+	$uploadUrl = $paths['upload_url'];
+	$audioUrl = $paths['audio_url'];
 	
 	// Ensure directories exist
 	if (!is_dir($uploadDir)) {
@@ -31,14 +44,24 @@
 	// --- 0. Thumbnail Check (Run on load) ---
 	$dataChanged = false;
 	foreach ($data['words'] as &$word) {
-		if (!empty($word['image']) && file_exists($word['image'])) {
-			$pathInfo = pathinfo($word['image']);
-			$thumbName = $pathInfo['filename'] . '_thumb.jpg';
-			$thumbPath = $pathInfo['dirname'] . '/' . $thumbName;
-			if (empty($word['thumb']) || !file_exists($thumbPath)) {
-				if (createThumbnail($word['image'], $thumbPath, 256, 256)) {
-					$word['thumb'] = $thumbPath;
-					$dataChanged = true;
+// Check if image exists using the stored URL path converted to physical path
+// Note: This logic assumes the stored path is relative.
+// If stored path is 'assets/uploads/img.jpg', we map it to physical.
+		$storedImg = $word['image'] ?? '';
+		if (!empty($storedImg)) {
+			$fileName = basename($storedImg);
+			$physicalImgPath = $uploadDir . $fileName;
+			
+			if (file_exists($physicalImgPath)) {
+				$thumbName = pathinfo($fileName, PATHINFO_FILENAME) . '_thumb.jpg';
+				$physicalThumbPath = $uploadDir . $thumbName;
+				$webThumbPath = $uploadUrl . $thumbName;
+				
+				if (empty($word['thumb']) || !file_exists($physicalThumbPath)) {
+					if (createThumbnail($physicalImgPath, $physicalThumbPath, 256, 256)) {
+						$word['thumb'] = $webThumbPath;
+						$dataChanged = true;
+					}
 				}
 			}
 		}
@@ -71,7 +94,7 @@
 	
 	// --- 3. Handle Form Submissions (POST) ---
 	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-		// A. Add Language
+// A. Add Language
 		if (isset($_POST['action']) && $_POST['action'] === 'add_language') {
 			$code = strtolower(trim($_POST['lang_code']));
 			$name = trim($_POST['lang_name']);
@@ -82,37 +105,51 @@
 			header("Location: admin.php");
 			exit;
 		}
-		
-		// B. Save Single Word
+
+// B. Save Single Word
 		if (isset($_POST['action']) && $_POST['action'] === 'save_word') {
 			$text = strtoupper(trim($_POST['text']));
 			$lang = $_POST['lang'];
-			$imagePath = $_POST['current_image_path'] ?? '';
-			$audioPath = $_POST['current_audio_path'] ?? '';
+			$imagePath = $_POST['current_image_path'] ?? ''; // This should be the URL path
+			$audioPath = $_POST['current_audio_path'] ?? ''; // This should be the URL path
 			$imagePrompt = $_POST['image_prompt'] ?? '';
-			
+
+// Handle File Upload
 			if (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
 				$ext = pathinfo($_FILES['image_file']['name'], PATHINFO_EXTENSION);
 				$filename = uniqid() . '.' . $ext;
-				move_uploaded_file($_FILES['image_file']['tmp_name'], $uploadDir . $filename);
-				$imagePath = $uploadDir . $filename;
+				$physicalDest = $uploadDir . $filename;
+				
+				if (move_uploaded_file($_FILES['image_file']['tmp_name'], $physicalDest)) {
+					$imagePath = $uploadUrl . $filename;
+				}
 			}
-			
+
+// Handle Thumbnail Generation
 			$thumbPath = '';
-			if (!empty($imagePath) && file_exists($imagePath)) {
-				$pathInfo = pathinfo($imagePath);
-				$thumbName = $pathInfo['filename'] . '_thumb.jpg';
-				$thumbPath = $pathInfo['dirname'] . '/' . $thumbName;
-				createThumbnail($imagePath, $thumbPath, 256, 256);
+			if (!empty($imagePath)) {
+				$fileName = basename($imagePath);
+				$physicalImg = $uploadDir . $fileName;
+				
+				if (file_exists($physicalImg)) {
+					$thumbName = pathinfo($fileName, PATHINFO_FILENAME) . '_thumb.jpg';
+					$physicalThumb = $uploadDir . $thumbName;
+					
+					createThumbnail($physicalImg, $physicalThumb, 256, 256);
+					$thumbPath = $uploadUrl . $thumbName;
+				}
 			}
-			
-			// Auto-generate audio if missing and key exists
+
+// Auto-generate audio if missing and key exists
 			if (empty($audioPath) && !empty($text) && !empty($settings['gemini_api_key'])) {
 				$spelled = implode(', ', str_split($text));
 				$prompt = "Spell: " . $spelled . "\nSay cheerfully: " . $text;
-				$newAudio = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
-				if ($newAudio) {
-					$audioPath = $newAudio;
+
+// Generate to physical path
+				$newAudioPhysical = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
+				if ($newAudioPhysical) {
+// Convert to URL path
+					$audioPath = $audioUrl . basename($newAudioPhysical);
 				}
 			}
 			
@@ -131,8 +168,8 @@
 				$data['words'][] = $newWord;
 			}
 			file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-			
-			// MODIFIED: Redirect to specific page and search query
+
+// Redirect logic
 			$rPage = $_POST['page'] ?? 1;
 			$rQuery = $_POST['q'] ?? '';
 			$redirectUrl = "admin.php?view=list&page=" . urlencode($rPage);
@@ -143,8 +180,8 @@
 			header("Location: " . $redirectUrl);
 			exit;
 		}
-		
-		// C. Save Batch Words
+
+// C. Save Batch Words
 		if (isset($_POST['action']) && $_POST['action'] === 'save_batch') {
 			$texts = $_POST['batch_text'] ?? [];
 			$prompts = $_POST['batch_prompt'] ?? [];
@@ -153,14 +190,10 @@
 			foreach ($texts as $idx => $text) {
 				$text = strtoupper(trim($text));
 				$prompt = $prompts[$idx] ?? '';
-				
-				// Generate Audio
+
+// MODIFIED: Do NOT auto-generate audio here.
+// The user will use the "Auto-Fill Missing Assets" tool or generate individually.
 				$audioPath = '';
-				if (!empty($settings['gemini_api_key'])) {
-					$spelled = implode(', ', str_split($text));
-					$ttsPrompt = "Spell: " . $spelled . "\nSay cheerfully: " . $text;
-					$audioPath = generateAudio($ttsPrompt, $settings['gemini_api_key'], $audioDir);
-				}
 				
 				$data['words'][] = [
 					'text' => $text,
@@ -175,21 +208,27 @@
 			header("Location: admin.php");
 			exit;
 		}
-		
-		// D. Delete Word
+
+// D. Delete Word
 		if (isset($_POST['action']) && $_POST['action'] === 'delete') {
 			$index = $_POST['index'];
 			if (isset($data['words'][$index])) {
 				$w = $data['words'][$index];
-				if (file_exists($w['image'])) {
-					unlink($w['image']);
+
+// Resolve URL paths to physical paths for deletion
+				if (!empty($w['image'])) {
+					$p = $uploadDir . basename($w['image']);
+					if (file_exists($p)) unlink($p);
 				}
-				if (file_exists($w['thumb'])) {
-					unlink($w['thumb']);
+				if (!empty($w['thumb'])) {
+					$p = $uploadDir . basename($w['thumb']);
+					if (file_exists($p)) unlink($p);
 				}
-				if (file_exists($w['audio'])) {
-					unlink($w['audio']);
+				if (!empty($w['audio'])) {
+					$p = $audioDir . basename($w['audio']);
+					if (file_exists($p)) unlink($p);
 				}
+				
 				array_splice($data['words'], $index, 1);
 				file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 			}
@@ -226,13 +265,12 @@
 	// --- 5. Render Page ---
 	require 'views/header.php';
 ?>
-
 <div class="container">
 	<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
 		<h1>Word Manager</h1>
 		<a href="?logout=1">Logout</a>
 	</div>
-	
+
 	<!-- Navigation -->
 	<div class="nav-tabs">
 		<a href="?view=list" class="nav-tab <?php echo $view === 'list' ? 'active' : ''; ?>">Manage Words</a>
@@ -247,11 +285,9 @@
 		}
 	?>
 </div>
-
 <?php
 	require 'views/modals.php';
 	require 'views/scripts.php';
 ?>
-
 </body>
 </html>
