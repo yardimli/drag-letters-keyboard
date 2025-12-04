@@ -51,6 +51,7 @@
 		.control-group {
 			margin-bottom: 20px;
 			text-align: center;
+			width: 300px;
 		}
 		
 		label {
@@ -68,7 +69,28 @@
 			background: rgba(255, 255, 255, 0.9);
 			color: #333;
 			cursor: pointer;
-			min-width: 200px;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		
+		#category-container {
+			background: rgba(0, 0, 0, 0.3);
+			border-radius: 8px;
+			padding: 10px;
+			max-height: 150px;
+			overflow-y: auto;
+			text-align: left;
+			display: none; /* Hidden until language selected */
+		}
+		
+		.cat-item {
+			display: block;
+			margin-bottom: 5px;
+			cursor: pointer;
+		}
+		
+		.cat-item input {
+			margin-right: 10px;
 		}
 		
 		button#start-btn {
@@ -132,6 +154,12 @@
 			</select>
 		</div>
 		
+		<div class="control-group">
+			<div id="category-container">
+				<!-- Checkboxes injected here -->
+			</div>
+		</div>
+		
 		<button id="start-btn" disabled>START GAME</button>
 	</div>
 	
@@ -147,14 +175,21 @@
 	const uiLayer = document.getElementById('ui-layer');
 	const menuControls = document.getElementById('menu-controls');
 	const langSelect = document.getElementById('lang-select');
+	const catContainer = document.getElementById('category-container');
 	const startBtn = document.getElementById('start-btn');
 	const loadingText = document.getElementById('loading-text');
+	
+	let allWordsData = [];
 	
 	// 1. Fetch words to populate language dropdown
 	fetch('assets/words.json')
 		.then(response => response.json())
 		.then(data => {
-			langSelect.innerHTML = ''; // Clear loading text
+			langSelect.innerHTML = '<option value="" disabled selected>Select Language</option>';
+			
+			if (data.words) {
+				allWordsData = data.words;
+			}
 			
 			let languages = {};
 			
@@ -174,7 +209,6 @@
 					option.textContent = name;
 					langSelect.appendChild(option);
 				}
-				startBtn.disabled = false;
 			} else {
 				const option = document.createElement('option');
 				option.textContent = "No languages found";
@@ -186,10 +220,62 @@
 			langSelect.innerHTML = '<option>Error loading data</option>';
 		});
 	
-	// 2. Handle Start Button
+	// 2. Handle Language Change -> Populate Categories
+	langSelect.addEventListener('change', () => {
+		const selectedLang = langSelect.value;
+		if (!selectedLang) return;
+		
+		// Extract categories for this language
+		const categories = new Set();
+		allWordsData.forEach(w => {
+			if (w.lang === selectedLang) {
+				categories.add(w.category || 'Default');
+			}
+		});
+		
+		// Render Checkboxes
+		catContainer.innerHTML = '<div style="margin-bottom:5px; font-size:14px; color:#aaa;">Select Categories:</div>';
+		
+		const sortedCats = Array.from(categories).sort();
+		
+		if (sortedCats.length > 0) {
+			sortedCats.forEach(cat => {
+				const label = document.createElement('label');
+				label.className = 'cat-item';
+				label.style.fontSize = '16px';
+				label.style.fontWeight = 'normal';
+				
+				const checkbox = document.createElement('input');
+				checkbox.type = 'checkbox';
+				checkbox.value = cat;
+				checkbox.checked = true; // Default to checked
+				
+				label.appendChild(checkbox);
+				label.appendChild(document.createTextNode(cat));
+				catContainer.appendChild(label);
+			});
+			catContainer.style.display = 'block';
+			startBtn.disabled = false;
+		} else {
+			catContainer.style.display = 'none';
+			// Even if no categories found (unlikely if words exist), allow start
+			startBtn.disabled = false;
+		}
+	});
+	
+	// 3. Handle Start Button
 	startBtn.addEventListener('click', async () => {
 		const selectedLang = langSelect.value;
 		if (!selectedLang) return;
+		
+		// Get selected categories
+		const checkboxes = catContainer.querySelectorAll('input[type="checkbox"]:checked');
+		const selectedCategories = Array.from(checkboxes).map(cb => cb.value);
+		
+		if (selectedCategories.length === 0 && catContainer.style.display !== 'none') {
+			alert("Please select at least one category.");
+			return;
+		}
 		
 		// UI Transition
 		menuControls.style.display = 'none';
@@ -199,8 +285,8 @@
 		document.body.style.cursor = 'none';
 		
 		try {
-			// Launch Phaser Game with selected language
-			await launchGame(selectedLang);
+			// Launch Phaser Game with selected language and categories
+			await launchGame(selectedLang, selectedCategories);
 			
 			// Hide UI completely
 			uiLayer.classList.add('hidden');

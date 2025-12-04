@@ -1,6 +1,6 @@
 <?php if ($view === 'list'): ?>
 	<!-- LIST VIEW -->
-
+	
 	<!-- Add Language Form -->
 	<div class="lang-form">
 		<div>
@@ -13,7 +13,7 @@
 			</form>
 		</div>
 	</div>
-
+	
 	<!-- Toolbar: Add Word, Auto-Fill, Search -->
 	<div class="toolbar">
 		<div style="display:flex; gap: 10px;">
@@ -23,7 +23,7 @@
 				&#9881; Auto-Fill Missing Assets
 			</button>
 		</div>
-
+		
 		<form class="search-box" method="GET">
 			<input type="hidden" name="view" value="list">
 			<input type="text" name="q" placeholder="Search words..." value="<?php echo htmlspecialchars($searchQuery); ?>" style="margin:0; width: 200px;">
@@ -33,12 +33,13 @@
 			<?php endif; ?>
 		</form>
 	</div>
-
+	
 	<table>
 		<thead>
 		<tr>
 			<th width="80">Thumb</th>
 			<th>Word</th>
+			<th>Category</th>
 			<th>Language</th>
 			<th>Audio</th>
 			<th width="250">Actions</th>
@@ -62,6 +63,11 @@
 						<?php if (!empty($word['image_prompt'])): ?>
 							<div style="font-size: 10px; color: #888;">Prompt: <?php echo htmlspecialchars(substr($word['image_prompt'], 0, 30)); ?>...</div>
 						<?php endif; ?>
+					</td>
+					<td>
+                        <span style="background:#444; padding:2px 6px; border-radius:4px; font-size:12px;">
+                            <?php echo htmlspecialchars($word['category'] ?? 'Default'); ?>
+                        </span>
 					</td>
 					<td><?php echo htmlspecialchars($data['languages'][$word['lang']] ?? $word['lang']); ?></td>
 					<td>
@@ -92,11 +98,11 @@
 				</tr>
 			<?php endforeach; ?>
 		<?php else: ?>
-			<tr><td colspan="5" style="text-align:center; padding:20px; color:#888;">No words found.</td></tr>
+			<tr><td colspan="6" style="text-align:center; padding:20px; color:#888;">No words found.</td></tr>
 		<?php endif; ?>
 		</tbody>
 	</table>
-
+	
 	<?php if ($totalPages > 1): ?>
 		<div class="pagination">
 			<?php if ($page > 1): ?>

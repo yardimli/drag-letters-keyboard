@@ -7,6 +7,11 @@ export class GameScene extends Phaser.Scene {
         super({ key: 'GameScene' });
     }
     
+    init (data) {
+        // If a specific word object was passed from SelectionScene, use it to start immediately
+        // (Logic for specific word start can be added here if needed, currently we just use the dictionary)
+    }
+    
     preload () {
         // Audio Assets (Effects)
         this.load.audio('drop', 'assets/audio/DSGNBass_Smooth Sub Drop Bass Downer.wav');
@@ -28,9 +33,15 @@ export class GameScene extends Phaser.Scene {
         
         const allWords = this.registry.get('dictionary') || [];
         const lang = this.registry.get('language') || 'en';
+        const categories = this.registry.get('categories') || [];
         
-        this.dictionary = allWords.filter(w => w.lang === lang);
-        console.log(`Game Dictionary: ${this.dictionary.length} words for language '${lang}'`);
+        // Filter dictionary by Language AND Category
+        this.dictionary = allWords.filter(w => {
+            const wCat = w.category || 'Default';
+            return w.lang === lang && (categories.length === 0 || categories.includes(wCat));
+        });
+        
+        console.log(`Game Dictionary: ${this.dictionary.length} words for language '${lang}' and selected categories.`);
         
         this.currentImage = null;
         this.suggestionText = null;

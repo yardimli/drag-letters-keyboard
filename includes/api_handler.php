@@ -8,10 +8,10 @@
 			exit;
 		}
 
-// Ensure we have the path variables (inherited from admin.php)
-// $uploadDir, $audioDir, $uploadUrl, $audioUrl, $jsonFile
+		// Ensure we have the path variables (inherited from admin.php)
+		// $uploadDir, $audioDir, $uploadUrl, $audioUrl, $jsonFile
 
-// --- A. Generate Image Preview (FAL.AI) ---
+		// --- A. Generate Image Preview (FAL.AI) ---
 		if ($_POST['action'] === 'generate_ai_preview') {
 			header('Content-Type: application/json');
 			$prompt = $_POST['prompt'] ?? '';
@@ -20,11 +20,11 @@
 				exit;
 			}
 
-// Generate to physical path
+			// Generate to physical path
 			$physicalPath = generateImage($prompt, $settings['fal_api_key'], $uploadDir);
 
 			if ($physicalPath) {
-// Return URL path
+				// Return URL path
 				$urlPath = $uploadUrl . basename($physicalPath);
 				echo json_encode(['success' => true, 'url' => $urlPath]);
 			} else {
@@ -33,7 +33,7 @@
 			exit;
 		}
 
-// --- B. Regenerate Audio ---
+		// --- B. Regenerate Audio ---
 		if ($_POST['action'] === 'regenerate_audio') {
 			header('Content-Type: application/json');
 			$prompt = $_POST['prompt'] ?? '';
@@ -48,15 +48,15 @@
 				exit;
 			}
 
-// Generate to physical path
+			// Generate to physical path
 			$physicalPath = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
 
 			if ($physicalPath) {
 				$urlPath = $audioUrl . basename($physicalPath);
 
-// If index is provided, update the database immediately
+				// If index is provided, update the database immediately
 				if ($index !== '' && isset($data['words'][$index])) {
-// Cleanup old audio if exists
+					// Cleanup old audio if exists
 					$oldAudioUrl = $data['words'][$index]['audio'] ?? '';
 					if (!empty($oldAudioUrl)) {
 						$oldPhysical = $audioDir . basename($oldAudioUrl);
@@ -75,14 +75,14 @@
 			exit;
 		}
 
-// --- C. Scan for Missing Assets (Step 1 of Auto-Gen) ---
+		// --- C. Scan for Missing Assets (Step 1 of Auto-Gen) ---
 		if ($_POST['action'] === 'scan_missing_assets') {
 			header('Content-Type: application/json');
 			$tasks = [];
 
 			foreach ($data['words'] as $idx => $word) {
-// 1. Check Audio
-// We check if the file exists physically based on the stored URL
+				// 1. Check Audio
+				// We check if the file exists physically based on the stored URL
 				$audioExists = false;
 				if (!empty($word['audio'])) {
 					$physAudio = $audioDir . basename($word['audio']);
@@ -100,7 +100,7 @@
 					];
 				}
 
-// 2. Check Image (only if prompt exists)
+				// 2. Check Image (only if prompt exists)
 				$imageExists = false;
 				if (!empty($word['image'])) {
 					$physImage = $uploadDir . basename($word['image']);
@@ -125,7 +125,7 @@
 			exit;
 		}
 
-// --- D. Generate Single Asset (Step 2 of Auto-Gen) ---
+		// --- D. Generate Single Asset (Step 2 of Auto-Gen) ---
 		if ($_POST['action'] === 'generate_single_asset') {
 			header('Content-Type: application/json');
 			$index = $_POST['index'] ?? null;
@@ -159,7 +159,7 @@
 					if ($newImagePhys) {
 						$word['image'] = $uploadUrl . basename($newImagePhys);
 
-// Create thumb
+						// Create thumb
 						$pathInfo = pathinfo($newImagePhys);
 						$thumbName = $pathInfo['filename'] . '_thumb.jpg';
 						$thumbPhys = $pathInfo['dirname'] . '/' . $thumbName;
@@ -178,7 +178,7 @@
 			}
 
 			if ($success) {
-// Save immediately to persist progress
+				// Save immediately to persist progress
 				file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 			}
 
@@ -186,7 +186,7 @@
 			exit;
 		}
 
-// --- E. Generate Word List (LLM) ---
+		// --- E. Generate Word List (LLM) ---
 		if ($_POST['action'] === 'generate_word_list') {
 			header('Content-Type: application/json');
 			$topic = $_POST['topic'] ?? '';
@@ -197,13 +197,27 @@
 				exit;
 			}
 
+			// 1. Scan for existing categories in this language
+			$existingCategories = [];
+			foreach ($data['words'] as $w) {
+				if (isset($w['lang']) && $w['lang'] === $lang) {
+					$cat = $w['category'] ?? 'Default';
+					if (!in_array($cat, $existingCategories)) {
+						$existingCategories[] = $cat;
+					}
+				}
+			}
+			$catStr = implode(', ', $existingCategories);
+
 			$apiKey = $settings['gemini_api_key'];
 			$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" . $apiKey;
 
 			$systemPrompt = "You are a helper that generates vocabulary lists for a spelling game. Return ONLY valid JSON. No markdown formatting.";
 			$userPrompt = "Generate a list of 10 simple, single words related to the topic '$topic' in language '$lang'.
 Also provide a short visual description for an image generator for each word.
-Format: [{\"text\": \"WORD\", \"image_prompt\": \"visual description\"}].
+Assign a category to each word.
+Existing categories in this language are: [$catStr]. Reuse these if they fit, otherwise create a new short category name.
+Format: [{\"text\": \"WORD\", \"category\": \"CATEGORY\", \"image_prompt\": \"visual description\"}].
 Ensure words are uppercase. Do not include duplicates.";
 
 			$payload = [
@@ -222,7 +236,7 @@ Ensure words are uppercase. Do not include duplicates.";
 			$json = json_decode($response, true);
 			$rawText = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-// Clean Markdown if present
+			// Clean Markdown if present
 			$rawText = str_replace(['```json', '```'], '', $rawText);
 			$generatedWords = json_decode($rawText, true);
 
@@ -231,7 +245,7 @@ Ensure words are uppercase. Do not include duplicates.";
 				exit;
 			}
 
-// Deduplicate against existing words
+			// Deduplicate against existing words
 			$finalList = [];
 			foreach ($generatedWords as $gw) {
 				$isDuplicate = false;
@@ -242,6 +256,10 @@ Ensure words are uppercase. Do not include duplicates.";
 					}
 				}
 				if (!$isDuplicate) {
+					// Ensure category exists
+					if (empty($gw['category'])) {
+						$gw['category'] = 'Default';
+					}
 					$finalList[] = $gw;
 				}
 			}

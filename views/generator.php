@@ -20,17 +20,17 @@
 			</div>
 		</div>
 	</div>
-
+	
 	<form method="POST" id="batchForm" style="display:none;" class="gen-results">
 		<input type="hidden" name="action" value="save_batch">
 		<input type="hidden" name="batch_lang" id="batchLangInput">
-
+		
 		<h3 id="genStatus">Review Generated Words</h3>
 		<p style="color:#aaa; font-size:14px;">Edit words or prompts below. Duplicates have been removed.
 			<br>Saving will add these to the database and <strong>automatically generate audio</strong> for them.</p>
-
+		
 		<div id="genList"></div>
-
+		
 		<button type="submit" class="btn btn-save">Save All</button>
 	</form>
 <?php endif; ?>

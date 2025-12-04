@@ -2,3 +2,5 @@
 /.scp
 settings.php
 /assets/uploads
+/assets/audio
+assets/words.json

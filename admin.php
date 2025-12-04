@@ -44,9 +44,7 @@
 	// --- 0. Thumbnail Check (Run on load) ---
 	$dataChanged = false;
 	foreach ($data['words'] as &$word) {
-// Check if image exists using the stored URL path converted to physical path
-// Note: This logic assumes the stored path is relative.
-// If stored path is 'assets/uploads/img.jpg', we map it to physical.
+		// Check if image exists using the stored URL path converted to physical path
 		$storedImg = $word['image'] ?? '';
 		if (!empty($storedImg)) {
 			$fileName = basename($storedImg);
@@ -94,7 +92,7 @@
 	
 	// --- 3. Handle Form Submissions (POST) ---
 	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-// A. Add Language
+		// A. Add Language
 		if (isset($_POST['action']) && $_POST['action'] === 'add_language') {
 			$code = strtolower(trim($_POST['lang_code']));
 			$name = trim($_POST['lang_name']);
@@ -105,16 +103,21 @@
 			header("Location: admin.php");
 			exit;
 		}
-
-// B. Save Single Word
+		
+		// B. Save Single Word
 		if (isset($_POST['action']) && $_POST['action'] === 'save_word') {
 			$text = strtoupper(trim($_POST['text']));
 			$lang = $_POST['lang'];
-			$imagePath = $_POST['current_image_path'] ?? ''; // This should be the URL path
-			$audioPath = $_POST['current_audio_path'] ?? ''; // This should be the URL path
+			$category = trim($_POST['category']);
+			if (empty($category)) {
+				$category = 'Default';
+			}
+			
+			$imagePath = $_POST['current_image_path'] ?? '';
+			$audioPath = $_POST['current_audio_path'] ?? '';
 			$imagePrompt = $_POST['image_prompt'] ?? '';
-
-// Handle File Upload
+			
+			// Handle File Upload
 			if (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
 				$ext = pathinfo($_FILES['image_file']['name'], PATHINFO_EXTENSION);
 				$filename = uniqid() . '.' . $ext;
@@ -124,8 +127,8 @@
 					$imagePath = $uploadUrl . $filename;
 				}
 			}
-
-// Handle Thumbnail Generation
+			
+			// Handle Thumbnail Generation
 			$thumbPath = '';
 			if (!empty($imagePath)) {
 				$fileName = basename($imagePath);
@@ -139,16 +142,16 @@
 					$thumbPath = $uploadUrl . $thumbName;
 				}
 			}
-
-// Auto-generate audio if missing and key exists
+			
+			// Auto-generate audio if missing and key exists
 			if (empty($audioPath) && !empty($text) && !empty($settings['gemini_api_key'])) {
 				$spelled = implode(', ', str_split($text));
 				$prompt = "Spell: " . $spelled . "\nSay cheerfully: " . $text;
-
-// Generate to physical path
+				
+				// Generate to physical path
 				$newAudioPhysical = generateAudio($prompt, $settings['gemini_api_key'], $audioDir);
 				if ($newAudioPhysical) {
-// Convert to URL path
+					// Convert to URL path
 					$audioPath = $audioUrl . basename($newAudioPhysical);
 				}
 			}
@@ -159,6 +162,7 @@
 				'thumb' => $thumbPath,
 				'audio' => $audioPath,
 				'lang' => $lang,
+				'category' => $category,
 				'image_prompt' => $imagePrompt
 			];
 			
@@ -168,8 +172,8 @@
 				$data['words'][] = $newWord;
 			}
 			file_put_contents($jsonFile, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-// Redirect logic
+			
+			// Redirect logic
 			$rPage = $_POST['page'] ?? 1;
 			$rQuery = $_POST['q'] ?? '';
 			$redirectUrl = "admin.php?view=list&page=" . urlencode($rPage);
@@ -180,19 +184,22 @@
 			header("Location: " . $redirectUrl);
 			exit;
 		}
-
-// C. Save Batch Words
+		
+		// C. Save Batch Words
 		if (isset($_POST['action']) && $_POST['action'] === 'save_batch') {
 			$texts = $_POST['batch_text'] ?? [];
 			$prompts = $_POST['batch_prompt'] ?? [];
+			$categories = $_POST['batch_category'] ?? [];
 			$lang = $_POST['batch_lang'];
 			
 			foreach ($texts as $idx => $text) {
 				$text = strtoupper(trim($text));
 				$prompt = $prompts[$idx] ?? '';
-
-// MODIFIED: Do NOT auto-generate audio here.
-// The user will use the "Auto-Fill Missing Assets" tool or generate individually.
+				$cat = trim($categories[$idx] ?? 'Default');
+				if (empty($cat)) {
+					$cat = 'Default';
+				}
+				
 				$audioPath = '';
 				
 				$data['words'][] = [
@@ -201,6 +208,7 @@
 					'thumb' => '',
 					'audio' => $audioPath,
 					'lang' => $lang,
+					'category' => $cat,
 					'image_prompt' => $prompt
 				];
 			}
@@ -208,25 +216,31 @@
 			header("Location: admin.php");
 			exit;
 		}
-
-// D. Delete Word
+		
+		// D. Delete Word
 		if (isset($_POST['action']) && $_POST['action'] === 'delete') {
 			$index = $_POST['index'];
 			if (isset($data['words'][$index])) {
 				$w = $data['words'][$index];
-
-// Resolve URL paths to physical paths for deletion
+				
+				// Resolve URL paths to physical paths for deletion
 				if (!empty($w['image'])) {
 					$p = $uploadDir . basename($w['image']);
-					if (file_exists($p)) unlink($p);
+					if (file_exists($p)) {
+						unlink($p);
+					}
 				}
 				if (!empty($w['thumb'])) {
 					$p = $uploadDir . basename($w['thumb']);
-					if (file_exists($p)) unlink($p);
+					if (file_exists($p)) {
+						unlink($p);
+					}
 				}
 				if (!empty($w['audio'])) {
 					$p = $audioDir . basename($w['audio']);
-					if (file_exists($p)) unlink($p);
+					if (file_exists($p)) {
+						unlink($p);
+					}
 				}
 				
 				array_splice($data['words'], $index, 1);
@@ -245,12 +259,22 @@
 	
 	// Filter words for list view
 	$filteredWords = [];
+	$uniqueCategories = []; // Collect unique categories for the datalist
+	
 	foreach ($data['words'] as $idx => $word) {
+		// Collect category
+		$cat = $word['category'] ?? 'Default';
+		if (!in_array($cat, $uniqueCategories)) {
+			$uniqueCategories[] = $cat;
+		}
+		
 		if ($searchQuery === '' || stripos($word['text'], $searchQuery) !== false) {
 			$word['original_index'] = $idx;
 			$filteredWords[] = $word;
 		}
 	}
+	sort($uniqueCategories);
+	
 	$totalWords = count($filteredWords);
 	$totalPages = ceil($totalWords / $perPage);
 	if ($page < 1) {
@@ -270,11 +294,12 @@
 		<h1>Word Manager</h1>
 		<a href="?logout=1">Logout</a>
 	</div>
-
+	
 	<!-- Navigation -->
 	<div class="nav-tabs">
 		<a href="?view=list" class="nav-tab <?php echo $view === 'list' ? 'active' : ''; ?>">Manage Words</a>
 		<a href="?view=generator" class="nav-tab <?php echo $view === 'generator' ? 'active' : ''; ?>">AI Word Generator</a>
+		<a href="index.html" class="nav-tab">Game</a>
 	</div>
 	
 	<?php

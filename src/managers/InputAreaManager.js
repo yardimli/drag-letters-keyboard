@@ -7,7 +7,6 @@ export class InputAreaManager {
         this.inputContainer = null;
         this.activeBalls = [];
         this.inputBg = null;
-        this.label = null;
         this.clearBtn = null;
 
         this.areaWidth = 600;
@@ -20,14 +19,14 @@ export class InputAreaManager {
         // Position near the top to allow space for image and keyboard below
         this.yPos = 100;
 
-        // Container holds background, label, button, and balls
+        // Container holds background, button, and balls
         this.inputContainer = this.scene.add.container(width / 2, this.yPos);
 
         this.drawLayout();
     }
 
     /**
-     * Draws or redraws the static UI elements (Background, Button, Label)
+     * Draws or redraws the static UI elements (Background, Button)
      * based on the current screen size.
      */
     drawLayout () {
@@ -36,26 +35,19 @@ export class InputAreaManager {
 
         // 1. Determine Dimensions
         // On mobile, use 90% of screen width. On desktop, cap at 600.
-        this.areaWidth = isMobile ? width * 0.9 : 600;
+        this.areaWidth = isMobile ? width * 0.9 : width * 0.8;
 
         // 2. Cleanup existing UI elements (but keep balls)
         if (this.inputBg) this.inputBg.destroy();
-        if (this.label) this.label.destroy();
         if (this.clearBtn) this.clearBtn.destroy();
 
         // 3. Create Background
         this.inputBg = this.scene.add.rectangle(0, 0, this.areaWidth, this.areaHeight, 0x222222);
         this.inputBg.setStrokeStyle(4, 0x00ffff);
         this.inputBg.setAlpha(0.8);
-
-        // 4. Create Label
-        this.label = this.scene.add.text(-this.areaWidth / 2, -this.areaHeight / 2 - 30, "DRAG LETTERS HERE", {
-            fontSize: '16px',
-            color: '#00ffff'
-        });
-
+        
         // Add to container (send to back so balls appear on top)
-        this.inputContainer.add([this.inputBg, this.label]);
+        this.inputContainer.add([this.inputBg]);
         this.inputContainer.sendToBack(this.inputBg);
 
         // 5. Create Clear Button
