@@ -4,6 +4,12 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Drag Type Keyboard</title>
+	
+	<link rel="apple-touch-icon" sizes="180x180" href="/drag-letters-keyboard/apple-touch-icon.png">
+	<link rel="icon" type="image/png" sizes="32x32" href="/drag-letters-keyboard/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/drag-letters-keyboard/favicon-16x16.png">
+	<link rel="manifest" href="/drag-letters-keyboard/site.webmanifest">
+	
 	<style>
 		body {
 			margin: 0;
@@ -73,6 +79,21 @@
 			box-sizing: border-box;
 		}
 		
+		/* NEW: Sentence Mode Toggle */
+		.toggle-container {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 10px;
+			margin-bottom: 10px;
+			cursor: pointer;
+		}
+		.toggle-container input {
+			width: 20px;
+			height: 20px;
+			cursor: pointer;
+		}
+		
 		#category-container {
 			background: rgba(0, 0, 0, 0.3);
 			border-radius: 8px;
@@ -139,7 +160,7 @@
 		}
 	</style>
 	<!-- Load Phaser -->
-	<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.0/dist/phaser.min.js"></script>
+	<script src="phaser/phaser.min.js"></script>
 </head>
 <body>
 
@@ -152,6 +173,14 @@
 			<select id="lang-select">
 				<option value="" disabled selected>Loading languages...</option>
 			</select>
+		</div>
+		
+		<!-- NEW: Sentence Mode Checkbox -->
+		<div class="control-group">
+			<label class="toggle-container">
+				<input type="checkbox" id="sentence-mode-check">
+				<span>Enable Sentence Mode</span>
+			</label>
 		</div>
 		
 		<div class="control-group">
@@ -175,6 +204,7 @@
 	const uiLayer = document.getElementById('ui-layer');
 	const menuControls = document.getElementById('menu-controls');
 	const langSelect = document.getElementById('lang-select');
+	const sentenceCheck = document.getElementById('sentence-mode-check');
 	const catContainer = document.getElementById('category-container');
 	const startBtn = document.getElementById('start-btn');
 	const loadingText = document.getElementById('loading-text');
@@ -271,6 +301,7 @@
 		// Get selected categories
 		const checkboxes = catContainer.querySelectorAll('input[type="checkbox"]:checked');
 		const selectedCategories = Array.from(checkboxes).map(cb => cb.value);
+		const isSentenceMode = sentenceCheck.checked;
 		
 		if (selectedCategories.length === 0 && catContainer.style.display !== 'none') {
 			alert("Please select at least one category.");
@@ -285,8 +316,8 @@
 		document.body.style.cursor = 'none';
 		
 		try {
-			// Launch Phaser Game with selected language and categories
-			await launchGame(selectedLang, selectedCategories);
+			// Launch Phaser Game with selected language, categories, and sentence mode flag
+			await launchGame(selectedLang, selectedCategories, isSentenceMode);
 			
 			// Hide UI completely
 			uiLayer.classList.add('hidden');

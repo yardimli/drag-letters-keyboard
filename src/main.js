@@ -4,8 +4,9 @@ import { GameScene } from './scenes/GameScene.js';
  * Launches the game with the specific language configuration.
  * @param {string} language - The language code selected by the user (e.g., 'en', 'zh').
  * @param {Array<string>} categories - List of selected categories.
+ * @param {boolean} sentenceMode - Whether sentence building mode is enabled.
  */
-export async function launchGame(language, categories = []) {
+export async function launchGame(language, categories = [], sentenceMode = false) {
     let allWords = [];
     
     try {
@@ -46,10 +47,10 @@ export async function launchGame(language, categories = []) {
     const game = new Phaser.Game(config);
     
     // --- Store Data in Registry ---
-    // We store the full list, but we also pass the language setting to the scene
     game.registry.set('dictionary', allWords);
     game.registry.set('language', language);
     game.registry.set('categories', categories);
+    game.registry.set('sentenceMode', sentenceMode); // Store mode
     
     return game;
 }
