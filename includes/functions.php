@@ -54,7 +54,7 @@
 	function generateAudio($prompt, $apiKey, $outputDir)
 	{
 		$voiceName = "Kore";
-		$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=" . $apiKey;
+		$url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-tts:generateContent?key=" . $apiKey;
 
 		$payload = [
 			"contents" => [["parts" => [["text" => $prompt]]]],
@@ -62,7 +62,7 @@
 				"responseModalities" => ["AUDIO"],
 				"speechConfig" => ["voiceConfig" => ["prebuiltVoiceConfig" => ["voiceName" => $voiceName]]]
 			],
-			"model" => "gemini-2.5-flash-preview-tts"
+			"model" => "gemini-2.5-pro-preview-tts"
 		];
 
 		$ch = curl_init($url);
