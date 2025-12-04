@@ -12,6 +12,7 @@ export class InputAreaManager {
         
         this.inputBg = null;
         this.clearBtn = null;
+        this.playBtn = null;
         
         this.areaWidth = 600;
         this.areaHeight = 100;
@@ -35,6 +36,7 @@ export class InputAreaManager {
         
         if (this.inputBg) this.inputBg.destroy();
         if (this.clearBtn) this.clearBtn.destroy();
+        if (this.playBtn) this.playBtn.destroy();
         
         this.inputBg = this.scene.add.rectangle(0, 0, this.areaWidth, this.areaHeight, 0x222222);
         this.inputBg.setStrokeStyle(4, 0x00ffff);
@@ -44,6 +46,11 @@ export class InputAreaManager {
         this.inputContainer.sendToBack(this.inputBg);
         
         this.createClearButton(isMobile);
+        
+        if (this.scene.isSentenceMode) {
+            this.createPlayButton(isMobile);
+        }
+        
         this.repositionBalls();
     }
     
@@ -51,11 +58,11 @@ export class InputAreaManager {
         let btnX, btnY;
         
         if (isMobile) {
-            btnX = 0;
+            btnX = -40;
             btnY = this.areaHeight / 2 + 30;
         } else {
-            btnX = this.areaWidth / 2 + 60;
-            btnY = 0;
+            btnX = -40;
+            btnY = this.areaHeight / 2 + 30;
         }
         
         this.clearBtn = this.scene.add.container(btnX, btnY);
@@ -74,6 +81,40 @@ export class InputAreaManager {
         });
         
         this.inputContainer.add(this.clearBtn);
+    }
+    
+    createPlayButton (isMobile) {
+        let btnX, btnY;
+        const spacing = 100; // Button height (40) + Gap (10)
+        
+        // Position relative to the Clear button
+        if (isMobile) {
+            btnX = -40 + spacing;
+            btnY = this.areaHeight / 2 + 30;
+        } else {
+            btnX = -40 + spacing;
+            btnY = this.areaHeight / 2 + 30;
+        }
+
+        this.playBtn = this.scene.add.container(btnX, btnY);
+        
+        // Match dimensions of Clear button (80x40), use Purple to distinguish
+        const bg = this.scene.add.rectangle(0, 0, 80, 40, 0x9b59b6);
+        bg.setStrokeStyle(2, 0xffffff);
+        const text = this.scene.add.text(0, 0, "PLAY", { fontSize: '16px', fontStyle: 'bold' }).setOrigin(0.5);
+        
+        this.playBtn.add([bg, text]);
+        this.playBtn.setSize(80, 40);
+        this.playBtn.setInteractive({ useHandCursor: true });
+        
+        this.playBtn.on('pointerdown', () => {
+            this.scene.sound.play('click');
+            if (this.scene.playFullSentence) {
+                this.scene.playFullSentence();
+            }
+        });
+        
+        this.inputContainer.add(this.playBtn);
     }
     
     addBall (ball) {

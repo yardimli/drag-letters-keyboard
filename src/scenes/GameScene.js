@@ -41,7 +41,6 @@ export class GameScene extends Phaser.Scene {
         
         this.currentImage = null;
         this.suggestionText = null;
-        this.playSentenceBtn = null;
         
         this.keyboardManager = new KeyboardManager(this);
         this.inputAreaManager = new InputAreaManager(this);
@@ -52,9 +51,6 @@ export class GameScene extends Phaser.Scene {
         this.inputManager.create();
         
         this.createSuggestionUI();
-        if (this.isSentenceMode) {
-            this.createSentenceUI();
-        }
         
         // Initialize keyboard state
         this.handleInputUpdate("");
@@ -62,28 +58,10 @@ export class GameScene extends Phaser.Scene {
         this.scale.on('resize', this.resize, this);
     }
     
-    createSentenceUI () {
-        const width = this.scale.width;
-        // Button to play full sentence
-        this.playSentenceBtn = this.add.container(width - 100, 50);
-        
-        const bg = this.add.circle(0, 0, 30, 0x9b59b6);
-        bg.setStrokeStyle(2, 0xffffff);
-        const icon = this.add.text(0, 0, "▶", { fontSize: '24px', color: '#fff' }).setOrigin(0.5);
-        
-        this.playSentenceBtn.add([bg, icon]);
-        this.playSentenceBtn.setSize(60, 60);
-        this.playSentenceBtn.setInteractive({ useHandCursor: true });
-        
-        this.playSentenceBtn.on('pointerdown', () => {
-            this.playFullSentence();
-        });
-    }
-    
     createSuggestionUI () {
         const width = this.scale.width;
         const isMobile = width < 700;
-        const offset = isMobile ? -130 : -100;
+        const offset = isMobile ? -150 : -150;
         
         this.suggestionText = this.add.text(width / 2, this.inputAreaManager.yPos - offset, "", {
             fontSize: '24px',
@@ -200,10 +178,6 @@ export class GameScene extends Phaser.Scene {
         // Returns TRUE if the word was consumed and the input reset (Sentence Mode)
         const wasConsumed = this.checkWord(currentWord);
         
-        // FIX: If the word was consumed, the active buffer is now empty.
-        // The recursive call inside showSuccess() has already reset the keyboard for the empty state.
-        // We must return here to prevent this execution (which holds the old 'currentWord')
-        // from re-evaluating and disabling the keyboard.
         if (wasConsumed) return;
         
         // 2. Filter suggestion dictionary based on current input
@@ -263,7 +237,6 @@ export class GameScene extends Phaser.Scene {
         this.playWordAudio(wordObj);
         this.showImage(wordObj);
         
-        // NEW: Always clear any previous timer to prevent premature fading of the new image
         if (this.clearTimer) this.time.removeEvent(this.clearTimer);
         
         if (this.isSentenceMode) {
@@ -271,11 +244,8 @@ export class GameScene extends Phaser.Scene {
             this.inputAreaManager.commitCurrentWord();
             
             // Reset input prediction state immediately for the next word
-            // This enables all starting letters again
             this.handleInputUpdate("");
             
-            // NEW: Hide image after delay (same duration as single mode)
-            // But we do NOT clear input here because it's part of the sentence
             this.clearTimer = this.time.delayedCall(3000, () => {
                 if (this.currentImage) {
                     this.tweens.add({
@@ -459,10 +429,6 @@ export class GameScene extends Phaser.Scene {
                 const inputRightEdge = inputMgr.inputContainer.x + (inputMgr.areaWidth / 2);
                 this.currentImage.setPosition(inputRightEdge + 10, inputMgr.inputContainer.y);
             }
-        }
-        
-        if (this.playSentenceBtn) {
-            this.playSentenceBtn.setPosition(width - 100, 50);
         }
     }
 }
