@@ -2,22 +2,117 @@
     "words": [
         {
             "text": "CAT",
-            "image": "assets\/uploads\/69232bfcae3cf.jpg",
+            "image": "assets\/uploads\/6923dd8fbba79.jpg",
             "lang": "en"
         },
         {
             "text": "DOG",
-            "image": "assets\/uploads\/69232c1134f4e.jpg",
+            "image": "assets\/uploads\/6923dda4e8c16.jpg",
             "lang": "en"
         },
         {
             "text": "RICE",
-            "image": "assets\/uploads\/692330a71cd03.jpg",
+            "image": "assets\/uploads\/6923ddb5163c1.jpg",
             "lang": "en"
         },
         {
             "text": "BED",
-            "image": "assets\/uploads\/692330eb09b8c.jpg",
+            "image": "assets\/uploads\/6923ddd851636.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "PASTA",
+            "image": "assets\/uploads\/6923de4e99f2f.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "NIGHT",
+            "image": "assets\/uploads\/69251a67f4172.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "FAN",
+            "image": "assets\/uploads\/69251a9c80daf.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "SOFA",
+            "image": "assets\/uploads\/69251ac714f63.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "TABLE",
+            "image": "assets\/uploads\/69251c5e67ec2.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "CHAIR",
+            "image": "assets\/uploads\/69251c7dc82ed.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "CHAIR",
+            "image": "assets\/uploads\/69251cb4daf81.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "IPAD",
+            "image": "assets\/uploads\/69251cd5b5a07.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "PHONE",
+            "image": "assets\/uploads\/69251d365747f.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "PLATE",
+            "image": "assets\/uploads\/69251d61c798f.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "SPOON",
+            "image": "assets\/uploads\/69251d7a5c871.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "FORK",
+            "image": "assets\/uploads\/69251d8bae57b.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "BOWL",
+            "image": "assets\/uploads\/69251da3d9c19.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "COOKIE",
+            "image": "assets\/uploads\/69251e1d39b0e.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "MUS",
+            "image": "assets\/uploads\/692a6fa8c4966.webp",
+            "lang": "en"
+        },
+        {
+            "text": "MILK",
+            "image": "assets\/uploads\/692a6fe7d928d.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "SLEEP",
+            "image": "assets\/uploads\/692a702d088ab.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "ANGRY",
+            "image": "assets\/uploads\/692a704a3335a.jpg",
+            "lang": "en"
+        },
+        {
+            "text": "COMPLAIN",
+            "image": "assets\/uploads\/692a70b248d0e.jpg",
             "lang": "en"
         }
     ]
