@@ -51,7 +51,7 @@
 		h1 {
 			font-size: 48px;
 			margin-bottom: 40px;
-			text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+			text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
 		}
 		
 		.control-group {
@@ -88,6 +88,7 @@
 			margin-bottom: 10px;
 			cursor: pointer;
 		}
+		
 		.toggle-container input {
 			width: 20px;
 			height: 20px;
@@ -123,7 +124,7 @@
 			border: none;
 			border-radius: 50px;
 			cursor: pointer;
-			box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+			box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 			transition: transform 0.2s, background 0.2s;
 			margin-top: 20px;
 		}
@@ -189,7 +190,9 @@
 			</div>
 		</div>
 		
-		<button id="start-btn" disabled>START GAME</button>
+		<div class="control-group">
+			<button id="start-btn" disabled>START GAME</button>
+		</div>
 	</div>
 	
 	<div id="loading-text">Loading Game Assets...</div>
@@ -199,7 +202,7 @@
 
 <!-- Game Entry Point -->
 <script type="module">
-	import { launchGame } from './src/main.js';
+	import {launchGame} from './src/main.js';
 	
 	const uiLayer = document.getElementById('ui-layer');
 	const menuControls = document.getElementById('menu-controls');

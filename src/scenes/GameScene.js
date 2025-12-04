@@ -246,7 +246,7 @@ export class GameScene extends Phaser.Scene {
             // Reset input prediction state immediately for the next word
             this.handleInputUpdate("");
             
-            this.clearTimer = this.time.delayedCall(3000, () => {
+            this.clearTimer = this.time.delayedCall(5000, () => {
                 if (this.currentImage) {
                     this.tweens.add({
                         targets: this.currentImage,
@@ -262,9 +262,9 @@ export class GameScene extends Phaser.Scene {
             
             return true; // Signal that reset occurred
         } else {
-            // Single Word Mode: Clear after 3 seconds
+            // Single Word Mode: Clear after 5 seconds
             
-            this.clearTimer = this.time.delayedCall(3000, () => {
+            this.clearTimer = this.time.delayedCall(5000, () => {
                 this.inputAreaManager.clearInput();
                 // Also hide image
                 if (this.currentImage) {
